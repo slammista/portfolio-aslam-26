@@ -1,0 +1,126 @@
+---
+const roles = [
+  {
+    period: "Mag 2025, Presente",
+    title: "Data Analyst & Developer",
+    org: "Proxima Group, cliente Toyota / MediaPoint 95",
+    points: [
+      "Manutenzione ed evoluzione di un portafoglio di circa 18 report Power BI in produzione, con modernizzazione delle soluzioni e introduzione di nuovi KPI",
+      "Analisi delle richieste del business, valutazione di fattibilità tecnica con gli stakeholder e traduzione dei requisiti in soluzioni di reporting",
+      "Data modeling, DAX e Power Query in continuo; Row-Level Security, workspace, refresh, monitoring e rilasci su Power BI Service",
+      "Monitoraggio di NPS, Leads, Vendite, Sell-In e Sell-Out Usato, con interlocutori dal top management agli operatori della rete concessionari",
+      "Automazione di estrazioni giornaliere con Python e Pandas, incluse estrazioni a chunk per aggirare i limiti dei DBMS",
+      "AI LAB: sviluppo di applicativi interni con Claude Code, Codex e Antigravity",
+    ],
+  },
+  {
+    period: "Set 2024, Apr 2025",
+    title: "Jr. Software & ETL Developer",
+    org: "Origin Srl, cliente Vodafone / NTT Data",
+    points: [
+      "Sviluppo di processi ETL con Talend e stored procedure Oracle PL/SQL per flussi dati enterprise",
+      "Scrittura e aggiornamento del database e gestione dei flussi che alimentano il data layer",
+      "Contributo alla progettazione dello scheletro del progetto, definendo database e flussi ETL",
+      "Test in ambiente UAT e rilascio in produzione in contesti Agile",
+    ],
+  },
+  {
+    period: "Gen 2024, Ago 2024",
+    title: "IT Consultant",
+    org: "Comit Srl, clienti RAI e SIAE",
+    points: [
+      "Gestione operativa del ticketing su Jira e ServiceNow e supporto agli utenti",
+      "Monitoraggio di sistemi e infrastrutture IT per la continuità dei servizi",
+      "Supporto sui canali audio e video della rete nazionale, in collaborazione con i SOC per la trasmissione dei segnali",
+    ],
+  },
+  {
+    period: "Mar 2018, Ott 2023",
+    title: "Sales Associate & Key Holder",
+    org: "Adidas Italia / Footlocker EU / Sviluppo Srl",
+    points: [
+      "Gestione operativa del punto vendita, ruolo di Key Holder e formazione del personale",
+      "Analisi dei KPI commerciali e uso dei dati a supporto delle attività di vendita",
+      "Punto vendita di Roma tra i più performanti della rete, secondo in città",
+    ],
+  },
+];
+---
+<section id="experience" class="container">
+  <h2 data-reveal>Percorso professionale</h2>
+
+  <div class="timeline">
+    {roles.map((role) => (
+      <div class="timeline-item" data-reveal>
+        <div class="timeline-marker" aria-hidden="true"></div>
+        <div class="timeline-meta">{role.period}</div>
+        <h3>{role.title}</h3>
+        <p class="timeline-org">{role.org}</p>
+        <ul class="timeline-points">
+          {role.points.map((point) => <li>{point}</li>)}
+        </ul>
+      </div>
+    ))}
+  </div>
+</section>
+
+<style>
+  .timeline {
+    margin-top: 2rem;
+  }
+
+  .timeline-item {
+    position: relative;
+    border-left: 1px solid var(--border-strong);
+    padding: 0 0 3.5rem 2rem;
+  }
+  .timeline-item:last-child {
+    padding-bottom: 0;
+  }
+
+  .timeline-marker {
+    position: absolute;
+    left: -6px;
+    top: 0.4rem;
+    width: 11px;
+    height: 11px;
+    border-radius: 999px;
+    background: var(--accent);
+    box-shadow: 0 0 0 4px rgba(255, 59, 48, 0.16);
+  }
+
+  .timeline-meta {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.6rem;
+  }
+
+  .timeline-org {
+    color: var(--muted);
+    margin-bottom: 1.1rem;
+  }
+
+  .timeline-points {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .timeline-points li {
+    padding-left: 1.1rem;
+    position: relative;
+    max-width: 62ch;
+  }
+  .timeline-points li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.65em;
+    width: 5px;
+    height: 5px;
+    background: var(--accent);
+  }
+</style>

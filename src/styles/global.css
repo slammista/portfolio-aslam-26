@@ -1,0 +1,144 @@
+/* Cinematic dark system */
+:root {
+  --bg: #0a0a0c;
+  --bg-elevated: #17171b;
+  --fg: #f3f1ea;
+  /* Near-black on the accent red scores 5.58:1; the off-white it replaced was
+     3.14:1 and failed WCAG AA for the small uppercase labels on accent buttons. */
+  --on-accent: #0a0a0c;
+  --muted: #8b8b93;
+  --accent: #ff3b30;
+  --border: rgba(243, 241, 234, 0.14);
+  --border-strong: rgba(243, 241, 234, 0.28);
+  --font-display: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "Courier New", Courier, monospace;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-size: 16px;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--fg);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Typography */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+h2 { font-size: clamp(2.25rem, 6vw, 4.5rem); margin-bottom: 1.5rem; }
+h3 { font-size: clamp(1.1rem, 2vw, 1.4rem); margin-bottom: 0.5rem; }
+
+p { max-width: 62ch; color: var(--fg); }
+
+a {
+  color: var(--fg);
+  text-decoration: none;
+  border-bottom: 1px solid var(--border-strong);
+  transition: border-color 0.2s, color 0.2s;
+}
+a:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Layout utilities */
+.container {
+  width: 90%;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 7rem 0;
+}
+
+.grid-2 {
+  display: grid;
+  /* minmax(0, 1fr), not the implicit minmax(auto, 1fr): a wide-content child
+     (the profile.json <pre>, in practice) otherwise sets the track's min size
+     and pushes the whole grid past the viewport instead of scrolling inside
+     its own box. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3rem;
+}
+@media (min-width: 768px) {
+  .grid-2 { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 4rem; }
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  margin-bottom: 1.25rem;
+  display: block;
+}
+
+/* Buttons */
+.btn {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1rem 2rem;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s, color 0.2s, border-color 0.2s;
+}
+.btn:hover {
+  background: var(--fg);
+  color: var(--bg);
+  border-color: var(--fg);
+}
+.btn:active {
+  transform: scale(0.98);
+}
+.btn-accent {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+.btn-accent:hover {
+  background: var(--fg);
+  border-color: var(--fg);
+  color: var(--bg);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-strong); }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}

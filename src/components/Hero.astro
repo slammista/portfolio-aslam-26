@@ -1,0 +1,461 @@
+---
+const firstName = "Matteo";
+const lastName = "Aslam";
+---
+<section class="cinema" aria-label="Apertura">
+  <div class="cinema-pin">
+    <canvas class="cinema-canvas" aria-hidden="true"></canvas>
+    <div class="cinema-vignette" aria-hidden="true"></div>
+
+    <div class="cinema-content">
+      <h1 class="cinema-title">
+        <span class="sr-only">{firstName} {lastName}</span>
+        <span class="cinema-word" aria-hidden="true">
+          {firstName.split("").map((c) => <span class="cinema-char">{c}</span>)}
+        </span>
+        <span class="cinema-word" aria-hidden="true">
+          {lastName.split("").map((c) => <span class="cinema-char">{c}</span>)}
+        </span>
+      </h1>
+
+      <p class="cinema-sub cinema-intro">
+        Data & BI Analyst, ETL Developer e AI Developer nel progetto interno AI LAB.
+      </p>
+
+      <div class="cinema-actions cinema-intro">
+        <a href="#projects" class="btn btn-accent">Vedi i progetti</a>
+        <a href="/cv-matteo-aslam.pdf" class="btn" download>Scarica CV</a>
+      </div>
+    </div>
+
+    <!-- The bridge line: appears once the data network has resolved, hands off to the site -->
+    <figure class="cinema-thesis" aria-hidden="true">
+      <blockquote>I'm wearing dark glasses today because I'm seeing the future and it's looking very bright</blockquote>
+      <figcaption>David Lynch</figcaption>
+    </figure>
+
+    <div class="cinema-progress" aria-hidden="true"><span class="cinema-progress-fill"></span></div>
+  </div>
+</section>
+
+<style>
+  .cinema {
+    position: relative;
+    background: var(--bg);
+  }
+
+  .cinema-pin {
+    position: relative;
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .cinema-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+  }
+
+  .cinema-vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 45%, var(--bg) 100%);
+    pointer-events: none;
+  }
+
+  .cinema-content {
+    position: relative;
+    z-index: 2;
+    width: 90%;
+    max-width: 1160px;
+    margin: 0 auto;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .cinema-title {
+    font-family: var(--font-display);
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    line-height: 0.95;
+    font-size: clamp(3.25rem, 11vw, 9.5rem);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0 clamp(0.6rem, 2vw, 2rem);
+  }
+
+  .cinema-word {
+    display: inline-flex;
+  }
+
+  .cinema-char {
+    display: inline-block;
+    will-change: transform, opacity;
+  }
+
+  .cinema-sub {
+    margin-top: 2rem;
+    font-size: clamp(1rem, 1.6vw, 1.25rem);
+    max-width: 46ch;
+    color: var(--fg);
+  }
+
+  .cinema-actions {
+    margin-top: 2.5rem;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .cinema-thesis {
+    position: absolute;
+    z-index: 2;
+    width: 90%;
+    /* Wide enough that the quote sits on three lines instead of stacking into a
+       column and covering the network behind it. */
+    max-width: 44rem;
+    margin: 0 auto;
+    text-align: center;
+    opacity: 0;
+  }
+
+  .cinema-thesis blockquote {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+    font-size: clamp(1.1rem, 2.6vw, 1.9rem);
+    text-wrap: balance;
+  }
+
+  .cinema-thesis figcaption {
+    margin-top: 1.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+  }
+
+  .cinema-progress {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--border);
+    z-index: 2;
+  }
+  .cinema-progress-fill {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    transform-origin: left;
+  }
+
+  @media (max-width: 640px) {
+    .cinema-title { font-size: clamp(2.5rem, 14vw, 4.5rem); }
+  }
+</style>
+
+<script>
+  import { gsap } from "gsap";
+  import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+  gsap.registerPlugin(ScrollTrigger);
+
+  const section = document.querySelector<HTMLElement>(".cinema");
+  const pin = document.querySelector<HTMLElement>(".cinema-pin");
+  const canvas = document.querySelector<HTMLCanvasElement>(".cinema-canvas");
+  const progressBar = document.querySelector<HTMLElement>(".cinema-progress");
+  const progressFill = document.querySelector<HTMLElement>(".cinema-progress-fill");
+  const thesis = document.querySelector<HTMLElement>(".cinema-thesis");
+  const chars = gsap.utils.toArray<HTMLElement>(".cinema-char");
+  const intro = gsap.utils.toArray<HTMLElement>(".cinema-intro");
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---- Generative canvas: a data-network that resolves from noise into signal ---- */
+  let phase = 0;
+
+  if (section && pin && canvas) {
+    const ctx = canvas.getContext("2d");
+
+    if (ctx) {
+      let width = 0;
+      let height = 0;
+      let dpr = 1;
+      let nodes: {
+        sx: number; sy: number; tx: number; ty: number;
+        x: number; y: number; r: number; driftPhase: number; driftSpeed: number;
+      }[] = [];
+
+      const NODE_COUNT = 42;
+
+      function paintBuffer() {
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas!.width = width * dpr;
+        canvas!.height = height * dpr;
+        ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      function seedNodes() {
+        const cols = 7;
+        const rows = Math.ceil(NODE_COUNT / cols);
+        // The resolved lattice occupies a centered band rather than the whole
+        // viewport, so neighbours land inside the link radius and the network
+        // actually reads as connected.
+        const gridW = width * 0.66;
+        const gridH = height * 0.62;
+        const originX = (width - gridW) / 2;
+        const originY = (height - gridH) / 2;
+
+        nodes = Array.from({ length: NODE_COUNT }, (_, i) => {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          return {
+            sx: Math.random() * width,
+            sy: Math.random() * height,
+            tx: originX + (gridW / (cols - 1)) * col,
+            ty: originY + (gridH / (rows - 1)) * row + Math.sin(col * 0.9) * height * 0.045,
+            x: 0,
+            y: 0,
+            r: 1.8 + Math.random() * 2,
+            driftPhase: Math.random() * Math.PI * 2,
+            driftSpeed: 0.35 + Math.random() * 0.5,
+          };
+        });
+      }
+
+      // Mobile browsers change the visible viewport height mid-session as the
+      // address bar collapses on scroll (100dvh resolving to a different value
+      // than at load). A single measurement taken at script start can end up
+      // stale, which drew the whole network squeezed into a corner. Re-measure
+      // on any actual box-size change (ResizeObserver, not just 'resize' - it
+      // also catches the dvh-driven case) and rescale the existing pattern
+      // instead of re-randomizing it, so a correction never looks like a jump.
+      function handleResize() {
+        const newWidth = pin!.clientWidth;
+        const newHeight = pin!.clientHeight;
+        if (newWidth === width && newHeight === height) return;
+
+        if (nodes.length && width > 0 && height > 0) {
+          const sx = newWidth / width;
+          const sy = newHeight / height;
+          for (const n of nodes) {
+            n.sx *= sx;
+            n.sy *= sy;
+            n.tx *= sx;
+            n.ty *= sy;
+          }
+          width = newWidth;
+          height = newHeight;
+          paintBuffer();
+        } else {
+          width = newWidth;
+          height = newHeight;
+          paintBuffer();
+          seedNodes();
+        }
+      }
+
+      function draw(time: number) {
+        if (!ctx || !canvas) return;
+        ctx.clearRect(0, 0, width, height);
+        const t = time * 0.001;
+
+        for (const n of nodes) {
+          const drift = 1 - phase * 0.6;
+          const driftX = Math.sin(t * n.driftSpeed + n.driftPhase) * 7 * drift;
+          const driftY = Math.cos(t * n.driftSpeed * 0.8 + n.driftPhase) * 7 * drift;
+          n.x = n.sx + (n.tx - n.sx) * phase + driftX;
+          n.y = n.sy + (n.ty - n.sy) * phase + driftY;
+        }
+
+        ctx.lineWidth = 1;
+        for (let i = 0; i < nodes.length; i++) {
+          for (let j = i + 1; j < nodes.length; j++) {
+            const a = nodes[i];
+            const b = nodes[j];
+            const dx = a.x - b.x;
+            const dy = a.y - b.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const maxDist = 90 + phase * 90;
+            if (dist < maxDist) {
+              const alpha = (1 - dist / maxDist) * (0.06 + phase * 0.3);
+              ctx.strokeStyle = `rgba(243, 241, 234, ${alpha})`;
+              ctx.beginPath();
+              ctx.moveTo(a.x, a.y);
+              ctx.lineTo(b.x, b.y);
+              ctx.stroke();
+            }
+          }
+        }
+
+        for (const n of nodes) {
+          ctx.beginPath();
+          ctx.fillStyle = `rgba(255, 59, 48, ${0.55 + phase * 0.35})`;
+          ctx.arc(n.x, n.y, n.r + phase * 0.7, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        requestAnimationFrame(draw);
+      }
+
+      width = pin!.clientWidth;
+      height = pin!.clientHeight;
+      paintBuffer();
+      seedNodes();
+
+      if (typeof ResizeObserver !== "undefined") {
+        let raf = 0;
+        const ro = new ResizeObserver(() => {
+          cancelAnimationFrame(raf);
+          raf = requestAnimationFrame(handleResize);
+        });
+        ro.observe(pin!);
+      } else {
+        window.addEventListener("resize", handleResize);
+      }
+
+      if (!reduceMotion) {
+        requestAnimationFrame(draw);
+      } else {
+        phase = 1;
+        draw(0);
+      }
+    }
+
+    if (!reduceMotion) {
+      /* ---- Intro: the name is on screen the moment the page loads ---- */
+      gsap.from(chars, {
+        yPercent: 110,
+        opacity: 0,
+        stagger: 0.03,
+        duration: 0.9,
+        ease: "power3.out",
+      });
+      gsap.from(intro, {
+        opacity: 0,
+        y: 22,
+        stagger: 0.1,
+        duration: 0.8,
+        delay: 0.45,
+        ease: "power3.out",
+      });
+
+      /* ---- Scroll-scrubbed cinematic timeline (starts from the assembled title) ---- */
+      const phaseDriver = { t: 0 };
+
+      // Scrubbing back to the very top could leave some characters stuck at a
+      // partial opacity, so the name came back incomplete when returning from
+      // further down the page. Force the assembled state whenever the playhead
+      // leaves the pinned section backwards.
+      const restoreHero = () => {
+        gsap.set(chars, { x: 0, y: 0, rotation: 0, opacity: 1 });
+        gsap.set(intro, { opacity: 1, y: 0 });
+        gsap.set(thesis, { opacity: 0 });
+        if (progressBar) gsap.set(progressBar, { opacity: 1 });
+      };
+
+      // A longer pin distance and heavier scrub lag give the sequence room to
+      // read as distinct beats even on a fast mobile flick, instead of the
+      // whole break-apart-and-resolve happening within two or three frames.
+      const PIN_DISTANCE = () => Math.max(window.innerHeight * 2.6, 2000);
+
+      const tl = gsap.timeline({
+        defaults: { ease: "none" },
+        scrollTrigger: {
+          trigger: section,
+          start: "top top",
+          end: () => "+=" + PIN_DISTANCE(),
+          scrub: 1.1,
+          pin: pin,
+          anticipatePin: 1,
+          onLeaveBack: restoreHero,
+          onUpdate: (self) => {
+            if (progressFill) progressFill.style.width = `${self.progress * 100}%`;
+            if (self.progress <= 0.001) restoreHero();
+          },
+        },
+      });
+
+      // The title breaks apart
+      tl.fromTo(
+        chars,
+        { x: 0, y: 0, rotation: 0, opacity: 1 },
+        {
+          x: () => gsap.utils.random(-260, 260),
+          y: () => gsap.utils.random(-180, 180),
+          rotation: () => gsap.utils.random(-50, 50),
+          opacity: 0,
+          // Deterministic order: a random stagger order gets reshuffled on every
+          // ScrollTrigger refresh, which left characters rendering out of sync.
+          stagger: { each: 0.012, from: "center" },
+          duration: 1.15,
+          immediateRender: false,
+        },
+        0.15
+      );
+
+      // The network emerges while the title is still breaking, so the debris
+      // reads as turning into data instead of leaving the screen empty.
+      tl.to(canvas, { opacity: 1, duration: 0.8 }, 0.3);
+
+      // and resolves from noise into structured signal
+      tl.to(phaseDriver, { t: 1, duration: 1.5, onUpdate: () => (phase = phaseDriver.t) }, 0.9);
+
+      // The thesis line lands once the network has fully settled, holds, then
+      // exits before the pin releases: "Chi sono" now arrives over a scene
+      // that is already clearing, instead of appearing beneath one still at
+      // full opacity.
+      tl.to(thesis, { opacity: 1, duration: 0.7 }, 2.4);
+      tl.to(canvas, { opacity: 0.12, duration: 0.6 }, 3.5);
+      tl.to(thesis, { opacity: 0, duration: 0.5 }, 3.6);
+      // The progress bar sits at the very bottom edge of the pin, right where
+      // "Chi sono" begins once it releases. Fade it out with the rest of the
+      // exit so it's gone before that boundary is ever on screen, rather than
+      // leaving a red line resting directly against the next heading.
+      if (progressBar) tl.to(progressBar, { opacity: 0, duration: 0.4 }, 3.7);
+
+      // The intro copy and CTAs are handled outside the scrub: a scrub-driven
+      // fade covers only ~12% of a ~2000px+ pin, so a normal flick jumped
+      // straight past it and the buttons looked like they popped rather than
+      // faded. A separate, non-scrubbed trigger with its own eased tween
+      // crosses a fixed scroll threshold once per direction, so the fade
+      // always plays at the same speed regardless of how fast the user
+      // scrolls.
+      const showIntro = () => gsap.to(intro, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" });
+
+      ScrollTrigger.create({
+        trigger: section,
+        start: "top top",
+        end: () => "+=" + Math.max(window.innerHeight * 0.32, 220),
+        onEnter: () => gsap.to(intro, { opacity: 0, y: -24, duration: 0.45, ease: "power2.out" }),
+        // onLeaveBack fires scrolling up past the START of this range; onEnterBack
+        // fires scrolling up back INTO it from below (the common case: the user
+        // was further down the page and is now scrolling back toward the top).
+        // Both should restore the intro.
+        onEnterBack: showIntro,
+        onLeaveBack: showIntro,
+      });
+    } else {
+      gsap.set(chars, { yPercent: 0, opacity: 1 });
+      gsap.set(intro, { opacity: 1, y: 0 });
+      gsap.set(canvas, { opacity: 1 });
+      gsap.set(thesis, { opacity: 0 });
+      phase = 1;
+      if (progressFill) progressFill.style.width = "100%";
+    }
+  }
+</script>
