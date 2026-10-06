@@ -1,27 +1,39 @@
 ---
 // The readout is rendered from this object, so it is real JSON with real
-// indentation. Each line becomes its own block so long values wrap with a
-// hanging indent instead of pushing the box sideways.
+// indentation. Values are kept short enough to read at a glance.
 const profile = {
   role: "Data & BI Analyst & Developer",
   location: "Roma, Italia",
   experience: "2+ anni",
   clients: ["Toyota", "Vodafone", "RAI", "SIAE"],
-  certified: [
-    "Microsoft PL-300",
-    "EPICODE Data Analytics",
-  ],
+  certified: ["Microsoft PL-300", "EPICODE Data Analytics"],
   core: ["Power BI", "DAX", "SQL", "Python", "Talend"],
-  building: "AI LAB, applicativi in AI-assisted development",
-  sideProjects: "full-stack e skill agentiche open source",
+  building: "AI LAB · AI-assisted development",
+  sideProjects: ["Full-stack", "Agentic skills · open source"],
   languages: { it: "madrelingua", en: "B2" },
   available: true,
-  goal: "Senior Data Analyst / Data Science",
+  goal: "Data & AI Solutions Engineer",
 };
 
-const lines = JSON.stringify(profile, null, 2)
+// Blank lines before these keys group the file the way a person would.
+const groupStarts = ["clients", "certified", "core", "building", "sideProjects", "languages", "available", "goal"];
+
+type Line = { depth: number; key: string; words: string[]; gap: boolean };
+
+// Each line is split into its key and its value, and the value into words:
+// a value that does not fit moves to the next line whole, and only breaks
+// between words, never inside "AI-assisted" or "Full-stack".
+const lines: Line[] = JSON.stringify(profile, null, 2)
   .split("\n")
-  .map((text) => ({ text, depth: text.length - text.trimStart().length }));
+  .flatMap((text) => {
+    const depth = text.length - text.trimStart().length;
+    const match = text.match(/^\s*("[^"]+": )(.*)$/);
+    const key = match ? match[1] : "";
+    const value = match ? match[2] : text.trimStart();
+    const line = { depth, key, words: value.split(" "), gap: false };
+    const opensGroup = depth === 2 && groupStarts.some((k) => key === `"${k}": `);
+    return opensGroup ? [{ depth, key: "", words: [], gap: true }, line] : [line];
+  });
 ---
 <section id="about" class="container about">
   <div class="grid-2">
@@ -45,9 +57,15 @@ const lines = JSON.stringify(profile, null, 2)
         <span class="readout-dot"></span>
         <span>profile.json</span>
       </div>
-      <pre class="readout-body">{lines.map((l) => (
-        <span class="readout-line" style={`--indent: ${l.depth}ch`}>{l.text}</span>
-      ))}</pre>
+      <pre class="readout-body">{lines.map((l) =>
+        l.gap ? (
+          <span class="readout-line readout-gap" aria-hidden="true"></span>
+        ) : (
+          <span class="readout-line" style={`--indent: ${l.depth}ch`}>{" ".repeat(l.depth)}{l.key}<span class="readout-value">{l.words.map((w, i) => (
+            <>{i > 0 && " "}<span class="readout-word">{w}</span></>
+          ))}</span></span>
+        )
+      )}</pre>
     </div>
   </div>
 </section>
@@ -94,14 +112,30 @@ const lines = JSON.stringify(profile, null, 2)
 
   /* One line of the file. The leading spaces stay in the text (so copying
      gives back valid, indented JSON); padding plus a matching negative
-     text-indent puts the first line back at column 0 and makes wrapped
-     continuations hang two characters inside the line's own indentation. */
+     text-indent puts the first line back at column 0 and makes a value that
+     moves down hang two characters inside the line's own indentation. */
   .readout-line {
     display: block;
     white-space: pre-wrap;
-    overflow-wrap: anywhere;
     padding-left: calc(var(--indent) + 2ch);
     text-indent: calc(-1 * (var(--indent) + 2ch));
+  }
+
+  /* The value travels as one piece: next to its key if it fits, on the line
+     below otherwise, and it only breaks between words. */
+  .readout-value {
+    display: inline-block;
+    max-width: 100%;
+    text-indent: 0;
+    vertical-align: top;
+  }
+
+  .readout-word {
+    white-space: nowrap;
+  }
+
+  .readout-gap {
+    height: 0.75em;
   }
 
   @media (max-width: 480px) {
