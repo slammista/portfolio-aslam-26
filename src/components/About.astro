@@ -1,66 +1,74 @@
 ---
-// The readout is a snapshot, not a CV: who, where, what, what I'm building,
-// where I'm heading. Clients, certifications and the full stack are in the
-// sections below. Rendered from this object, so it is real JSON.
-const profile = {
-  role: "Data & BI Analyst & Developer",
-  location: "Roma, Italia",
-  experience: "2+ anni",
-  focus: ["Data", "AI", "Automation"],
-  core: ["Power BI", "SQL", "Python"],
-  building: ["AI-assisted apps", "Agentic systems"],
-  goal: "Data & AI Solutions Engineer",
-};
+// A small Python class instead of a data dump: background, the tools the work
+// runs on, what I'm building with them, where it leads. Clients, certifications
+// and the full stack are told in the sections below.
+const profile: [string, string | string[]][] = [
+  ["background", "Data & BI"],
+  ["stack", ["Python", "SQL", "Power BI"]],
+  ["building", ["AI-assisted apps", "Agentic systems"]],
+  ["goal", "Data & AI Solutions Engineer"],
+];
 
-// Blank lines before these keys group the file the way a person would.
-const groupStarts = ["focus", "core", "building", "goal"];
+type Token = { text: string; kind: "kw" | "name" | "punct" | "attr" | "str" };
+type Line = { depth: number; head: Token[]; value: Token | null; gap: boolean };
 
-type Line = { depth: number; key: string; words: string[]; gap: boolean };
+const tok = (text: string, kind: Token["kind"]): Token => ({ text, kind });
+const str = (s: string): Token => tok(`"${s}"`, "str");
 
-// Each line is split into its key and its value, and the value into words:
-// a value that does not fit moves to the next line whole, and only breaks
-// between words, never inside "AI-assisted" or "Full-stack".
-const lines: Line[] = JSON.stringify(profile, null, 2)
-  .split("\n")
-  .flatMap((text) => {
-    const depth = text.length - text.trimStart().length;
-    const match = text.match(/^\s*("[^"]+": )(.*)$/);
-    const key = match ? match[1] : "";
-    const value = match ? match[2] : text.trimStart();
-    const line = { depth, key, words: value.split(" "), gap: false };
-    const opensGroup = depth === 2 && groupStarts.some((k) => key === `"${k}": `);
-    return opensGroup ? [{ depth, key: "", words: [], gap: true }, line] : [line];
-  });
+// Each line has a head (indent, name, operator) and an optional string value.
+// A value that does not fit moves under its name as one piece and only breaks
+// between words, so the code never runs past the box.
+const lines: Line[] = [
+  { depth: 0, head: [tok("class", "kw"), tok(" ", "punct"), tok("Matteo", "name"), tok(":", "punct")], value: null, gap: false },
+  ...profile.flatMap(([name, val], i): Line[] => {
+    const gap: Line[] = i > 0 ? [{ depth: 0, head: [], value: null, gap: true }] : [];
+    const assign = [tok(name, "attr"), tok(" = ", "punct")];
+    if (typeof val === "string") return [...gap, { depth: 4, head: assign, value: str(val), gap: false }];
+    return [
+      ...gap,
+      { depth: 4, head: [...assign, tok("[", "punct")], value: null, gap: false },
+      ...val.map((item): Line => ({ depth: 8, head: [], value: { ...str(item), text: `"${item}",` }, gap: false })),
+      { depth: 4, head: [tok("]", "punct")], value: null, gap: false },
+    ];
+  }),
+];
 ---
 <section id="about" class="container about">
   <div class="grid-2">
     <div data-reveal>
       <h2>Data & BI Analyst e Developer.</h2>
       <p style="margin-top: 1.5rem; margin-bottom: 1rem;">
-        Oltre 2 anni tra Business Intelligence, ETL enterprise e automazione. Lavoro su soluzioni Power BI in
-        produzione, dall'analisi dei requisiti fino a rilascio e monitoraggio, con stakeholder di Toyota e Vodafone.
+        Oltre 2 anni tra Business Intelligence, ETL enterprise e automazione. Oggi curo circa 18 report
+        Power BI in produzione: raccolgo i requisiti con il business, ne valuto la fattibilità e seguo la
+        soluzione fino a rilascio e monitoraggio, con stakeholder di Toyota e Vodafone.
       </p>
       <p style="margin-bottom: 1rem;">
-        Nel progetto interno AI LAB sviluppo applicativi come Developer con strumenti di AI-assisted development,
-        e fuori dal lavoro costruisco progetti full-stack e skill agentiche open source.
+        Con Python e Pandas automatizzo estrazioni e attività ricorrenti. Nel progetto interno AI LAB sviluppo
+        applicativi con strumenti di AI-assisted development come Claude Code e Codex, e fuori dal lavoro
+        costruisco progetti full-stack e sistemi agentici open source.
       </p>
       <p>
-        Il mio punto di forza è la capacità di stare tra la complessità tecnica e le esigenze di business. Capisco entrambe le lingue.
+        Il filo è lo stesso: capire il dato e il problema di business prima di scrivere codice. È quello che
+        porto nello sviluppo di soluzioni AI.
       </p>
     </div>
 
     <div class="readout" data-reveal>
       <div class="readout-bar">
         <span class="readout-dot"></span>
-        <span>profile.json</span>
+        <span>profile.py</span>
       </div>
       <pre class="readout-body">{lines.map((l) =>
         l.gap ? (
           <span class="readout-line readout-gap" aria-hidden="true"></span>
         ) : (
-          <span class="readout-line" style={`--indent: ${l.depth}ch`}>{" ".repeat(l.depth)}{l.key}<span class="readout-value">{l.words.map((w, i) => (
-            <>{i > 0 && " "}<span class="readout-word">{w}</span></>
-          ))}</span></span>
+          <span class="readout-line" style={`--indent: ${l.depth}ch`}>{" ".repeat(l.depth)}{l.head.map((t) => (
+            <span class={`tok-${t.kind}`}>{t.text}</span>
+          ))}{l.value && (
+            <span class="readout-value tok-str">{l.value.text.split(" ").map((w, i) => (
+              <>{i > 0 && " "}<span class="readout-word">{w}</span></>
+            ))}</span>
+          )}</span>
         )
       )}</pre>
     </div>
@@ -75,6 +83,8 @@ const lines: Line[] = JSON.stringify(profile, null, 2)
   .readout {
     background: var(--bg-elevated);
     border: 1px solid var(--border-strong);
+    /* Hug the code instead of stretching to the height of the text column. */
+    align-self: start;
   }
 
   .readout-bar {
@@ -108,7 +118,7 @@ const lines: Line[] = JSON.stringify(profile, null, 2)
   }
 
   /* One line of the file. The leading spaces stay in the text (so copying
-     gives back valid, indented JSON); padding plus a matching negative
+     gives back the same indented code); padding plus a matching negative
      text-indent puts the first line back at column 0 and makes a value that
      moves down hang two characters inside the line's own indentation. */
   .readout-line {
@@ -135,10 +145,28 @@ const lines: Line[] = JSON.stringify(profile, null, 2)
     height: 0.75em;
   }
 
+  /* Just enough highlighting to read as Python: the keyword in accent,
+     syntax in muted, names and values in the body colour. */
+  .tok-kw {
+    color: var(--accent);
+  }
+  .tok-punct {
+    color: var(--muted);
+  }
+
   /* Wide screens: the snapshot is short, so it can be read from across a room. */
   @media (min-width: 1200px) {
     .readout-body {
       font-size: 1rem;
+    }
+  }
+
+  /* Two-column tablet layout: the code column is narrow, so use the mobile
+     size there too and keep every list item on one line. */
+  @media (min-width: 768px) and (max-width: 1023px) {
+    .readout-body {
+      font-size: 0.8125rem;
+      padding: 1.25rem 1rem;
     }
   }
 
