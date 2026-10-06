@@ -566,16 +566,23 @@ const rollout = [
     letter-spacing: 0.14em;
     color: var(--accent);
     margin-bottom: 1.25rem;
+    margin-inline: auto;
+    text-align: center;
   }
 
+  /* Tag, title and claim form the centred chapter heading; the numbered
+     blocks below keep their left-aligned heads and body. */
   .arch h2 {
     text-wrap: balance;
+    text-align: center;
   }
 
   .arch-claim {
     font-size: clamp(1.05rem, 1.8vw, 1.3rem);
     max-width: 58ch;
     text-wrap: pretty;
+    text-align: center;
+    margin-inline: auto;
   }
 
   /* ---------- Numbered blocks ---------- */

@@ -1,22 +1,19 @@
 ---
-// The readout is rendered from this object, so it is real JSON with real
-// indentation. Values are kept short enough to read at a glance.
+// The readout is a snapshot, not a CV: who, where, what, what I'm building,
+// where I'm heading. Clients, certifications and the full stack are in the
+// sections below. Rendered from this object, so it is real JSON.
 const profile = {
   role: "Data & BI Analyst & Developer",
   location: "Roma, Italia",
   experience: "2+ anni",
-  clients: ["Toyota", "Vodafone", "RAI", "SIAE"],
-  certified: ["Microsoft PL-300", "EPICODE Data Analytics"],
-  core: ["Power BI", "DAX", "SQL", "Python", "Talend"],
-  building: "AI LAB · AI-assisted development",
-  sideProjects: ["Full-stack", "Agentic skills · open source"],
-  languages: { it: "madrelingua", en: "B2" },
-  available: true,
+  focus: ["Data", "AI", "Automation"],
+  core: ["Power BI", "SQL", "Python"],
+  building: ["AI-assisted apps", "Agentic systems"],
   goal: "Data & AI Solutions Engineer",
 };
 
 // Blank lines before these keys group the file the way a person would.
-const groupStarts = ["clients", "certified", "core", "building", "sideProjects", "languages", "available", "goal"];
+const groupStarts = ["focus", "core", "building", "goal"];
 
 type Line = { depth: number; key: string; words: string[]; gap: boolean };
 
@@ -136,6 +133,13 @@ const lines: Line[] = JSON.stringify(profile, null, 2)
 
   .readout-gap {
     height: 0.75em;
+  }
+
+  /* Wide screens: the snapshot is short, so it can be read from across a room. */
+  @media (min-width: 1200px) {
+    .readout-body {
+      font-size: 1rem;
+    }
   }
 
   @media (max-width: 480px) {
