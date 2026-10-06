@@ -17,8 +17,8 @@ const levels = [
   },
 ];
 
-// 02: one case walked through the loop. Smart Building, because it is where an
-// answer turns into something that happens in the real world.
+// 02: one case walked through the loop. Smart Retail, because in a physical
+// store a wrong answer becomes a wrong action: an alarm switched off for nobody.
 type TraceRow =
   | { kind: "phase"; label: string }
   | {
@@ -33,62 +33,68 @@ const trace: TraceRow[] = [
   {
     kind: "step",
     label: "Input",
-    title: "\"Anomalia di riscaldamento nell'appartamento 4B\"",
-    detail: "Temperatura sotto il setpoint da ore, consumo HVAC in aumento.",
+    title: "\"Apertura prevista alle 09:00. Alle 09:10 l'allarme è ancora inserito e non risultano ingressi.\"",
+    detail: "Porta chiusa, nessuna presenza rilevata.",
   },
   {
     kind: "step",
     label: "Specialists",
-    title: "HVAC, energia, occupazione, policy",
-    detail: "Ognuno legge solo i propri dati. La proposta: probabile guasto alla valvola di zona, intervento tecnico in giornata.",
+    title: "Operations, Security, Occupancy, Schedule, Policy",
+    detail: "Ognuno legge solo i propri dati. La proposta: mancata apertura, disattivare l'allarme e aprire il negozio.",
   },
   { kind: "phase", label: "Validation loop" },
   {
     kind: "pass",
     label: "Gate 01 · Validazione funzionale",
-    title: "La diagnosi spiega davvero i dati osservati?",
+    title: "Il negozio è davvero previsto aperto?",
+    detail: "Calendario e orari lo confermano: nessuna chiusura straordinaria.",
   },
   {
     kind: "pass",
     label: "Gate 02 · Validazione operativa",
-    title: "L'intervento rispetta i vincoli dell'edificio?",
-    detail: "Comfort minimo garantito, nessun impianto safety-critical coinvolto.",
+    title: "Il personale autorizzato dovrebbe essere presente?",
+    detail: "Sì: il turno di apertura è assegnato. Ma il dipendente designato non risulta arrivato.",
   },
   {
     kind: "fail",
     label: "Gate 03 · Security e policy",
-    title: "L'azione è autorizzata? L'agente ha i permessi? È reversibile?",
-    detail: "Manca: l'approvazione del property manager. L'intervento supera la soglia di spesa.",
+    title: "L'allarme può essere disattivato automaticamente?",
+    detail: "No. Manca: un responsabile autorizzato sul posto o raggiungibile.",
   },
   {
     kind: "response",
     label: "Risposta del sistema",
-    title: "Non esegue. Dice cosa manca e lo chiede.",
-    detail: "La richiesta di approvazione parte con diagnosi e costo stimato già allegati.",
+    title: "Non disattiva l'allarme. Notifica il manager.",
+    detail: "Il messaggio parte con il contesto già pronto: orario previsto, stato dell'allarme, ingressi, turno assegnato.",
+  },
+  {
+    kind: "step",
+    label: "Nuovo contesto",
+    title: "Il manager conferma che il dipendente designato non può aprire",
   },
   {
     kind: "rerun",
     label: "Re-run",
-    title: "I controlli ripartono con il nuovo contesto",
+    title: "I controlli ripartono: trovato un altro responsabile autorizzato",
   },
   {
     kind: "pass",
     label: "Gate 03 · di nuovo",
-    title: "Approvazione presente, permessi verificati",
+    title: "Responsabile autorizzato identificato, policy rispettata",
   },
   { kind: "phase", label: "Production gate" },
   {
     kind: "pass",
     label: "Gate 04 · Production readiness",
     title: "Si può eseguire adesso, in modo tracciabile e reversibile?",
-    checks: ["API disponibile", "Permessi verificati", "Audit trail attivo", "Rollback possibile", "Costo entro soglia"],
+    checks: ["Permesso verificato", "Policy verificata", "Azione reversibile", "Audit trail attivo"],
   },
   { kind: "phase", label: "Action" },
   {
     kind: "action",
     label: "Output finale",
-    title: "Work order al facility team",
-    detail: "Oppure un'azione API controllata e reversibile sul BMS. L'intero percorso resta nel log.",
+    title: "Disattivazione controllata dell'allarme",
+    detail: "All'arrivo del nuovo responsabile, tramite un'integrazione autorizzata. Se l'integrazione non lo permette, escalation: l'allarme lo disattiva una persona.",
   },
 ];
 
@@ -148,13 +154,25 @@ const stages = [
 ];
 
 type Step = { title: string; detail?: string; checks?: string[] };
+type Row = { when: string; then: string };
+type Domain = {
+  code: string;
+  name: string;
+  kind: string;
+  scenario: string;
+  steps: Step[];
+  // Concrete situations for the same loop, grouped (opening, during, closing...).
+  groups?: { title: string; rows: Row[] }[];
+  note?: string;
+};
 
-// One row per domain, steps in the same order as `stages`.
-const domains: { code: string; name: string; kind: string; scenario: string; steps: Step[] }[] = [
+// One row per domain, steps in the same order as `stages`. The stages never
+// change: input, specialists, knowledge, policies, tools and gates do.
+const domains: Domain[] = [
   {
     code: "game",
     name: "Agentic Game Studio",
-    kind: "Il prototipo, costruito",
+    kind: "Il pattern, costruito",
     scenario: "Una richiesta di design attraversa lo studio e diventa documentazione approvata.",
     steps: [
       { title: "Richiesta creativa", detail: "\"Progetta la fazione dei mercanti del nord\"" },
@@ -166,32 +184,78 @@ const domains: { code: string; name: string; kind: string; scenario: string; ste
     ],
   },
   {
-    code: "living",
-    name: "Living operations",
-    kind: "Scenario applicato, CX Living",
-    scenario: "Una segnalazione di un residente diventa un intervento pianificato e una risposta chiara, con un responsabile umano sulle decisioni che costano.",
+    code: "retail",
+    name: "Smart Retail",
+    kind: "Applicato: operazioni fisiche",
+    scenario: "Un negozio di abbigliamento osservato da sistemi diversi: temperatura, HVAC, ingressi, presenze, porte, serrature, allarme, orari previsti ed effettivi, calendario, consumi. Il valore non è un'AI che gestisce il negozio: è che eventi separati vengono correlati e trasformati in decisioni operative attraverso policy, validation e production gate. È un possibile modo di applicare il pattern.",
     steps: [
-      { title: "Richiesta del residente", detail: "\"Il riscaldamento dell'appartamento 4B non funziona\", da app, email o chat" },
-      { title: "Operations orchestrator", detail: "Classifica tipo e urgenza, recupera unità, contratto e storico ticket" },
-      { title: "Triage, policy, fornitori, comunicazione", detail: "Diagnosi probabile, chi paga, fornitore disponibile, bozza di risposta" },
-      { title: "Corretta per il residente e per il contratto", checks: ["Correttezza operativa", "Contratto e policy", "Privacy e permessi"] },
-      { title: "Prontezza operativa", checks: ["SLA rispettato", "Entro le soglie", "Chi deve approvare"] },
-      { title: "Ticket, risposta o escalation", detail: "Ticket sul gestionale e risposta al residente; sopra soglia decide il property manager" },
+      { title: "Eventi dal negozio", detail: "Sensori, porte, allarme, ingressi, orari, calendario" },
+      { title: "Store orchestrator", detail: "Correla gli eventi nel tempo e decide quali specialisti coinvolgere" },
+      { title: "Operations, Security, Occupancy, HVAC, Schedule, Policy", detail: "Permessi delimitati: chi legge l'allarme non può disattivarlo" },
+      { title: "La situazione è quella che sembra?", checks: ["Eventi coerenti tra loro", "Orari e calendario", "Sensori affidabili"] },
+      { title: "Si può agire?", checks: ["Azione autorizzata", "Reversibile", "Policy di sicurezza", "Audit trail"] },
+      { title: "Azione controllata o escalation", detail: "Setpoint, allarme, notifica al manager: solo tramite integrazioni autorizzate" },
     ],
+    groups: [
+      {
+        title: "Apertura",
+        rows: [
+          { when: "09:10, allarme inserito, nessun ingresso", then: "Verifica calendario, presenze, policy e autorizzazioni prima di toccare l'allarme. Se non può agire, notifica il manager" },
+          { when: "Un dipendente avvisa che non può aprire", then: "Registra l'evento, cerca un altro responsabile autorizzato, avvisa il manager. Può proporre una procedura alternativa, non cambia la policy" },
+          { when: "Allarme attivo dopo l'orario di apertura", then: "Segnala una possibile mancata apertura ed esegue l'escalation" },
+        ],
+      },
+      {
+        title: "Durante l'apertura",
+        rows: [
+          { when: "Temperatura troppo alta o troppo bassa", then: "Controlla presenze, stato dell'HVAC e soglia. Corregge il setpoint solo se l'azione è autorizzata e reversibile" },
+          { when: "Temperatura anomala, nessuna presenza", then: "Non dà per buono un solo sensore: correla con gli altri dati prima di agire" },
+          { when: "Valori incoerenti da un sensore", then: "Distingue una temperatura davvero anomala da una telemetria non affidabile, e segnala il guasto" },
+          { when: "Consumo energetico anomalo", then: "Lo confronta con temperatura, occupazione, orario e stato dell'HVAC" },
+          { when: "Porta aperta troppo a lungo", then: "Verifica se il negozio è aperto e se c'è qualcuno. Notifica se serve" },
+          { when: "Affluenza oltre la soglia", then: "Informa il manager e propone azioni operative" },
+        ],
+      },
+      {
+        title: "Chiusura",
+        rows: [
+          { when: "20:00, negozio vuoto", then: "Verifica presenze, porte e dispositivi ancora attivi. Avvia le procedure autorizzate: allarme, HVAC secondo policy" },
+          { when: "20:00, presenza rilevata", then: "Non inserisce l'allarme. Escalation al responsabile" },
+          { when: "Allarme non inserito o porte aperte", then: "Notifica il manager e il contatto di sicurezza" },
+        ],
+      },
+    ],
+    note: "Lo stesso modello si potrebbe portare in uno Smart Building: HVAC, occupancy, energia, controllo accessi e manutenzione diventerebbero altri domini specialistici.",
   },
   {
-    code: "building",
-    name: "Smart Building",
-    kind: "Scenario applicato",
-    scenario: "Un'anomalia letta dai sensori diventa una diagnosi e un'azione correttiva, senza che un agente tocchi mai direttamente un impianto critico.",
+    code: "enterprise",
+    name: "Private Agentic AI",
+    kind: "Applicato: conoscenza aziendale",
+    scenario: "Un'azienda vuole usare l'AI internamente senza dare a ogni agente accesso a tutta la conoscenza. HR, Finance, Legal, Operations, Sales, Procurement e IT hanno ciascuno documenti, RAG, agenti, strumenti, policy e permessi propri. Sopra c'è un orchestratore.",
     steps: [
-      { title: "Anomalia dai sensori", detail: "Consumo HVAC anomalo, temperature fuori range, allarmi dal BMS" },
-      { title: "Building orchestrator", detail: "Correla e deduplica gli eventi, decide quali specialisti coinvolgere" },
-      { title: "HVAC, energia, occupazione, policy", detail: "Diagnosi dell'impianto, consumi, presenze reali, vincoli d'intervento" },
-      { title: "Diagnosi sostenuta dai dati", checks: ["Diagnosi tecnica", "Vincoli dell'edificio", "Sicurezza"] },
-      { title: "Pronta per agire", checks: ["API autorizzata", "Audit trail", "Rollback", "Soglie di costo"] },
-      { title: "Work order o azione API controllata", detail: "Mai una scrittura diretta su un impianto: solo API autorizzate e reversibili" },
+      { title: "Domanda di un dipendente", detail: "\"Qual è la procedura per questo contratto?\"" },
+      { title: "Enterprise orchestrator", detail: "Identifica reparto, identità, ruolo e la fonte di conoscenza corretta" },
+      { title: "Legal RAG e agente legale", detail: "Cerca solo nei documenti Legal a cui l'utente ha accesso" },
+      { title: "Risposta fondata e consentita", checks: ["Fonte autorizzata e aggiornata", "Dati sufficienti", "Accessibile a chi chiede", "Coerente con la policy"] },
+      { title: "Serve un'azione?", checks: ["Chi può approvarla", "Approvazione umana", "Tracciata nel log"] },
+      { title: "Risposta con le fonti", detail: "Con i documenti citati; oppure richiesta di approvazione o escalation" },
     ],
+    groups: [
+      {
+        title: "Governance",
+        rows: [
+          { when: "Identità e ruoli", then: "Ogni richiesta porta con sé chi la fa: accesso per ruolo e least privilege" },
+          { when: "Confini dei dati", then: "Ogni reparto ha la sua Knowledge Base, con permessi a livello di documento" },
+          { when: "Fonti", then: "Ogni risposta indica i documenti da cui viene" },
+          { when: "Audit e logging", then: "Chi ha chiesto cosa, con quali fonti, con quale esito. Retention definita per policy" },
+          { when: "Model routing", then: "Il modello si sceglie anche in base alla sensibilità dei dati" },
+          { when: "Policy e istruzioni", then: "Prompt e istruzioni versionati e governati come il resto del sistema" },
+          { when: "Evaluation", then: "Eval continue su domande reali, comprese quelle a cui il sistema deve rifiutare di rispondere" },
+          { when: "Approvazione umana", then: "Richiesta quando la risposta diventa un'azione" },
+        ],
+      },
+    ],
+    note: "Il modello non decide da solo cosa può vedere: il RAG non è solo retrieval, è anche controllo dell'accesso alla conoscenza. È un'architettura pensata attorno a privacy, controllo degli accessi, auditabilità e governance, i requisiti che norme come GDPR e AI Act rendono centrali. Non garantisce da sola la conformità: serve a renderla possibile.",
   },
 ];
 
@@ -200,12 +264,12 @@ const gaps = [
   {
     area: "Security",
     proto: "Un solo utente fidato, in locale, dentro Claude Code. Gli input arrivano da chi ha costruito il sistema.",
-    prod: "Ogni input esterno è non fidato: difese da prompt injection, segreti in un vault, agenti senza credenziali dirette, dati personali minimizzati e mascherati (GDPR).",
+    prod: "Ogni input esterno è non fidato: difese da prompt injection, segreti in un vault, agenti senza credenziali dirette, dati personali minimizzati e mascherati come richiede il GDPR.",
   },
   {
     area: "Permissions",
     proto: "Il perimetro di ogni agente è definito nelle sue istruzioni e nella struttura della Knowledge Base.",
-    prod: "Least privilege applicato dal sistema, non dal prompt: identità di servizio per agente, scope per edificio e unità, allowlist degli strumenti, lettura separata dalla scrittura.",
+    prod: "Least privilege applicato dal sistema, non dal prompt: identità di servizio per agente, scope per negozio e per reparto, allowlist degli strumenti, lettura separata dalla scrittura.",
   },
   {
     area: "Observability",
@@ -225,7 +289,7 @@ const gaps = [
   {
     area: "API boundaries",
     proto: "Gli agenti scrivono file: il raggio d'azione è il repository.",
-    prod: "Nessun accesso diretto a database, gestionale o BMS: solo API tipizzate, output validato contro schema, chiavi di idempotenza, rate limit, modalità dry-run.",
+    prod: "Nessun accesso diretto ad allarme, HVAC, database o archivi documentali: solo API tipizzate, output validato contro schema, chiavi di idempotenza, rate limit, modalità dry-run.",
   },
   {
     area: "Failure handling",
@@ -321,9 +385,10 @@ const rollout = [
 
       <div class="case">
         <p class="case-lede" data-reveal>
-          Un caso concreto, nel dominio dove la differenza tra una risposta e un'azione si vede di più.
+          Un caso concreto, in un ambiente fisico dove la differenza tra una risposta e un'azione si
+          vede di più: l'apertura di un negozio.
         </p>
-        <ol class="trace" aria-label="Smart Building: un'anomalia attraverso il loop">
+        <ol class="trace" aria-label="Smart Retail: una mancata apertura attraverso il loop">
           {trace.map((row) =>
             row.kind === "phase" ? (
               <li class="trace-phase" lang="en">{row.label}</li>
@@ -420,7 +485,7 @@ const rollout = [
       <p class="block-lede" data-reveal>
         Non è scalabile perché posso aggiungere altri agenti. È scalabile perché il processo di
         verifica è indipendente dal dominio: cambiano gli specialisti e i gate, la struttura no.
-        Cambia il dominio per vedere come si riempie.
+        Tre domini lontani tra loro: creazione di contenuti, operazioni fisiche, conoscenza aziendale.
       </p>
 
       <figure class="pattern" data-reveal>
@@ -470,6 +535,20 @@ const rollout = [
                 </li>
               ))}
             </ol>
+            {d.groups?.map((g) => (
+              <div class="panel-group">
+                <p class="panel-group-title">{g.title}</p>
+                <ul class="policy-list">
+                  {g.rows.map((r) => (
+                    <li class="policy-row">
+                      <span class="policy-when">{r.when}</span>
+                      <span class="policy-then">{r.then}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+            {d.note && <p class="panel-note">{d.note}</p>}
           </div>
         ))}
       </figure>
@@ -483,8 +562,9 @@ const rollout = [
       </div>
       <p class="block-lede" data-reveal>
         Il prototipo dimostra il pattern. Un sistema reale richiede infrastruttura e garanzie che un
-        prototipo personale non deve avere: il loop è riutilizzabile, ma un'implementazione che apre
-        ticket, parla con i residenti o muove un impianto ha bisogno di controlli molto più forti.
+        prototipo personale non deve avere: il loop è riutilizzabile, ma un'implementazione che
+        disattiva un allarme, cambia un setpoint o risponde con documenti riservati ha bisogno di
+        controlli molto più forti.
         Questa è la distanza, voce per voce.
       </p>
 
@@ -492,7 +572,7 @@ const rollout = [
         <div class="gap-row gap-row--head" role="row">
           <span role="columnheader">Area</span>
           <span role="columnheader">Prototipo, Agentic Game Studio</span>
-          <span role="columnheader">Produzione, living ops e smart building</span>
+          <span role="columnheader">Produzione, retail ed enterprise AI</span>
         </div>
         {gaps.map((g) => (
           <div class="gap-row" role="row">
@@ -983,7 +1063,8 @@ const rollout = [
     background: var(--bg-elevated);
   }
 
-  .case-note {
+  .case-note,
+  .panel-note {
     margin-top: 2.5rem;
     padding-left: 0.9rem;
     border-left: 2px solid var(--accent);
@@ -1221,6 +1302,20 @@ const rollout = [
     color: var(--muted);
     margin-bottom: 2rem;
     text-wrap: pretty;
+  }
+
+  /* Concrete situations under the pipe: same look as the human-policy list. */
+  .panel-group {
+    margin-top: 2.5rem;
+  }
+
+  .panel-group-title {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
   }
 
   /* One column with vertical connectors on small screens; two columns read in
