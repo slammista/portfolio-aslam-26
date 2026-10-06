@@ -11,7 +11,7 @@ const levels = [
     detail: "Coerenza, completezza, vincoli del dominio. Se non passa, la proposta torna indietro.",
   },
   {
-    code: "Production readiness",
+    code: "Production gate",
     question: "Siamo tecnicamente, operativamente e legalmente autorizzati a trasformarla in un'azione reale?",
     detail: "Permessi, API, tracciabilità, reversibilità, soglie. Se non è pronta, non si esegue.",
   },
@@ -259,9 +259,9 @@ const rollout = [
         <h3 class="block-title">Proposte, non risposte</h3>
       </div>
       <p class="block-lede" data-reveal>
-        Gli agenti non producono risposte definitive: producono proposte. Ogni proposta deve passare
-        due livelli di verifica diversi prima di diventare qualcosa di reale, e confonderli è
-        l'errore più facile da fare.
+        Gli agenti producono proposte, e ogni proposta passa due controlli distinti: la validation
+        verifica che sia corretta rispetto al problema, il production gate che si possa davvero
+        eseguire. Una proposta può essere corretta e non ancora eseguibile.
       </p>
       <ol class="levels">
         {levels.map((l, i) => (
@@ -281,8 +281,9 @@ const rollout = [
         <h3 class="block-title">Il validation loop</h3>
       </div>
       <p class="block-lede" data-reveal>
-        Quando un controllo fallisce, non si procede. Si capisce cosa manca o cosa è sbagliato, si
-        riformula o si raccoglie l'informazione mancante, e si verifica di nuovo.
+        Proposta → verifica → correzione se serve → production gate → output approvato. Quando un
+        controllo fallisce non si procede: si capisce cosa manca o cosa è sbagliato, si riformula o
+        si raccoglie l'informazione mancante, e si verifica di nuovo.
       </p>
 
       <!-- The loop in general: the main line, and the branch it takes on a failure. -->
@@ -375,7 +376,7 @@ const rollout = [
     <div class="block">
       <div class="block-head" data-reveal>
         <span class="block-num">04</span>
-        <h3 class="block-title">I principi che si portano altrove</h3>
+        <h3 class="block-title">I principi, con il loop al centro</h3>
       </div>
       <ul class="principles">
         <li class="principle principle--core" data-reveal>
@@ -478,10 +479,10 @@ const rollout = [
     <div class="block">
       <div class="block-head" data-reveal>
         <span class="block-num">06</span>
-        <h3 class="block-title">Prototipo e produzione non sono la stessa cosa</h3>
+        <h3 class="block-title">Il loop in un prototipo e in un sistema reale</h3>
       </div>
       <p class="block-lede" data-reveal>
-        Il prototipo dimostra il pattern. La produzione richiede infrastruttura e garanzie che un
+        Il prototipo dimostra il pattern. Un sistema reale richiede infrastruttura e garanzie che un
         prototipo personale non deve avere: il loop è riutilizzabile, ma un'implementazione che apre
         ticket, parla con i residenti o muove un impianto ha bisogno di controlli molto più forti.
         Questa è la distanza, voce per voce.
