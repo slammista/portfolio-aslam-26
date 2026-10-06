@@ -1,4 +1,27 @@
 ---
+// The readout is rendered from this object, so it is real JSON with real
+// indentation. Each line becomes its own block so long values wrap with a
+// hanging indent instead of pushing the box sideways.
+const profile = {
+  role: "Data & BI Analyst & Developer",
+  location: "Roma, Italia",
+  experience: "2+ anni",
+  clients: ["Toyota", "Vodafone", "RAI", "SIAE"],
+  certified: [
+    "Microsoft PL-300",
+    "EPICODE Data Analytics",
+  ],
+  core: ["Power BI", "DAX", "SQL", "Python", "Talend"],
+  building: "AI LAB, applicativi in AI-assisted development",
+  sideProjects: "full-stack e skill agentiche open source",
+  languages: { it: "madrelingua", en: "B2" },
+  available: true,
+  goal: "Senior Data Analyst / Data Science",
+};
+
+const lines = JSON.stringify(profile, null, 2)
+  .split("\n")
+  .map((text) => ({ text, depth: text.length - text.trimStart().length }));
 ---
 <section id="about" class="container about">
   <div class="grid-2">
@@ -22,22 +45,9 @@
         <span class="readout-dot"></span>
         <span>profile.json</span>
       </div>
-      <pre class="readout-body">{`{
-  role: "Data & BI Analyst & Developer",
-  location: "Roma, Italia",
-  experience: "2+ anni",
-  clients: ["Toyota", "Vodafone", "RAI", "SIAE"],
-  certified: [
-    "Microsoft PL-300",
-    "EPICODE Data Analytics"
-  ],
-  core: ["Power BI", "DAX", "SQL", "Python", "Talend"],
-  building: "AI LAB, applicativi in AI-assisted development",
-  sideProjects: "full-stack e skill agentiche open source",
-  languages: { it: "madrelingua", en: "B2" },
-  available: true,
-  goal: "Senior Data Analyst / Data Science"
-}`}</pre>
+      <pre class="readout-body">{lines.map((l) => (
+        <span class="readout-line" style={`--indent: ${l.depth}ch`}>{l.text}</span>
+      ))}</pre>
     </div>
   </div>
 </section>
@@ -78,6 +88,27 @@
     color: var(--fg);
     padding: 1.5rem;
     line-height: 1.7;
+    /* Fallback only: lines wrap, so this is reached just by an unbreakable token. */
     overflow-x: auto;
+  }
+
+  /* One line of the file. The leading spaces stay in the text (so copying
+     gives back valid, indented JSON); padding plus a matching negative
+     text-indent puts the first line back at column 0 and makes wrapped
+     continuations hang two characters inside the line's own indentation. */
+  .readout-line {
+    display: block;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    padding-left: calc(var(--indent) + 2ch);
+    text-indent: calc(-1 * (var(--indent) + 2ch));
+  }
+
+  @media (max-width: 480px) {
+    .readout-body {
+      font-size: 0.8125rem;
+      padding: 1.25rem 1rem;
+      line-height: 1.65;
+    }
   }
 </style>
