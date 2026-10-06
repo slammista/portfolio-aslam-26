@@ -1,7 +1,101 @@
 ---
-// The section that follows Agentic Game Studio: what the project taught me,
-// and why the same architecture holds outside game pre-production.
+// The section that follows Agentic Game Studio: why the studio's architecture
+// holds outside game pre-production. The thesis is the validation loop, not
+// the number of agents.
 
+// 01: the two levels of checking a proposal goes through.
+const levels = [
+  {
+    code: "Validation",
+    question: "Quello che abbiamo prodotto è corretto rispetto al problema?",
+    detail: "Coerenza, completezza, vincoli del dominio. Se non passa, la proposta torna indietro.",
+  },
+  {
+    code: "Production readiness",
+    question: "Siamo tecnicamente, operativamente e legalmente autorizzati a trasformarla in un'azione reale?",
+    detail: "Permessi, API, tracciabilità, reversibilità, soglie. Se non è pronta, non si esegue.",
+  },
+];
+
+// 02: one case walked through the loop. Smart Building, because it is where an
+// answer turns into something that happens in the real world.
+type TraceRow =
+  | { kind: "phase"; label: string }
+  | {
+      kind: "step" | "pass" | "fail" | "response" | "rerun" | "action";
+      label: string;
+      title: string;
+      detail?: string;
+      checks?: string[];
+    };
+
+const trace: TraceRow[] = [
+  {
+    kind: "step",
+    label: "Input",
+    title: "\"Anomalia di riscaldamento nell'appartamento 4B\"",
+    detail: "Temperatura sotto il setpoint da ore, consumo HVAC in aumento.",
+  },
+  {
+    kind: "step",
+    label: "Specialists",
+    title: "HVAC, energia, occupazione, policy",
+    detail: "Ognuno legge solo i propri dati. La proposta: probabile guasto alla valvola di zona, intervento tecnico in giornata.",
+  },
+  { kind: "phase", label: "Validation loop" },
+  {
+    kind: "pass",
+    label: "Gate 01 · Validazione funzionale",
+    title: "La diagnosi spiega davvero i dati osservati?",
+  },
+  {
+    kind: "pass",
+    label: "Gate 02 · Validazione operativa",
+    title: "L'intervento rispetta i vincoli dell'edificio?",
+    detail: "Comfort minimo garantito, nessun impianto safety-critical coinvolto.",
+  },
+  {
+    kind: "fail",
+    label: "Gate 03 · Security e policy",
+    title: "L'azione è autorizzata? L'agente ha i permessi? È reversibile?",
+    detail: "Manca: l'approvazione del property manager. L'intervento supera la soglia di spesa.",
+  },
+  {
+    kind: "response",
+    label: "Risposta del sistema",
+    title: "Non esegue. Dice cosa manca e lo chiede.",
+    detail: "La richiesta di approvazione parte con diagnosi e costo stimato già allegati.",
+  },
+  {
+    kind: "rerun",
+    label: "Re-run",
+    title: "I controlli ripartono con il nuovo contesto",
+  },
+  {
+    kind: "pass",
+    label: "Gate 03 · di nuovo",
+    title: "Approvazione presente, permessi verificati",
+  },
+  { kind: "phase", label: "Production gate" },
+  {
+    kind: "pass",
+    label: "Gate 04 · Production readiness",
+    title: "Si può eseguire adesso, in modo tracciabile e reversibile?",
+    checks: ["API disponibile", "Permessi verificati", "Audit trail attivo", "Rollback possibile", "Costo entro soglia"],
+  },
+  { kind: "phase", label: "Action" },
+  {
+    kind: "action",
+    label: "Output finale",
+    title: "Work order al facility team",
+    detail: "Oppure un'azione API controllata e reversibile sul BMS. L'intero percorso resta nel log.",
+  },
+];
+
+const markers = { step: "→", pass: "✓", fail: "✕", response: "!", rerun: "↺", action: "→" } as const;
+const outcomes = { pass: "Passa", fail: "Non passa" } as const;
+
+// 03: what building the studio taught me.
 const lessons = [
   {
     title: "Il limite non è il modello, è il contesto",
@@ -12,80 +106,96 @@ const lessons = [
     body: "Ogni ruolo ha un perimetro scritto: cosa può leggere, cosa può produrre, a chi risponde. Quando due agenti si contraddicono, decide il Director, non il caso.",
   },
   {
-    title: "La validazione è un passaggio, non una speranza",
-    body: "Un prompt migliore non sostituisce un controllo. Cross-domain check e QA sono stadi separati della pipeline: un contenuto non validato non entra nella Knowledge Base.",
+    title: "Un controllo che fallisce deve rimandare indietro",
+    body: "Un prompt migliore non sostituisce un controllo, e un controllo che si limita a segnalare non basta. Cross-domain check e QA sono stadi separati: se un contenuto non passa, torna a chi l'ha prodotto, e nella Knowledge Base non entra.",
   },
   {
     title: "Il modello si sceglie per rischio e costo",
     body: "Haiku sui task ripetitivi e sul QA, Sonnet dove serve giudizio. Lo stesso criterio vale per qualsiasi dominio: il modello più capace solo dove l'errore costa.",
   },
   {
-    title: "L'umano approva, in batch",
-    body: "Il Director non rilegge ogni passaggio: approva i risultati validati a lotti. È il punto in cui l'automazione resta governabile senza diventare un collo di bottiglia.",
+    title: "Quanto coinvolgere l'umano è una scelta",
+    body: "Nello studio il Director approva in batch, perché i contenuti sono reversibili e il rischio è basso. Non è una regola dell'architettura: è una policy, e in un altro dominio cambia.",
   },
 ];
 
+// 04: the principles that survive a change of domain. The loop comes first.
 const principles = [
-  { code: "01", name: "Orchestratore unico", detail: "Un punto che classifica, smista e arbitra. Gli specialisti non si chiamano a vicenda." },
-  { code: "02", name: "Specialisti a contesto limitato", detail: "Ogni agente vede solo il dominio che gli serve: meno rumore, meno superficie di errore." },
-  { code: "03", name: "Fonte di verità condivisa", detail: "Lo stato vive in una Knowledge Base strutturata, non nella memoria di una conversazione." },
-  { code: "04", name: "Validazione come gate", detail: "Controlli espliciti tra la proposta e l'azione: coerenza, policy, sicurezza." },
-  { code: "05", name: "Routing per rischio", detail: "Modelli leggeri sul volume, modelli forti sulle decisioni." },
-  { code: "06", name: "Approvazione umana sul punto critico", detail: "L'umano interviene dove l'azione è costosa o irreversibile, non dappertutto." },
+  { code: "02", name: "Orchestratore unico", detail: "Un punto che classifica, smista e arbitra. Gli specialisti non si chiamano a vicenda." },
+  { code: "03", name: "Specialisti a contesto limitato", detail: "Ogni agente vede solo il dominio che gli serve: meno rumore, meno superficie di errore." },
+  { code: "04", name: "Fonte di verità condivisa", detail: "Lo stato vive in una Knowledge Base strutturata, non nella memoria di una conversazione." },
+  { code: "05", name: "Production gate separato", detail: "Una proposta corretta non è ancora un'azione autorizzata. Sono due controlli diversi." },
+  { code: "06", name: "Routing per rischio", detail: "Modelli leggeri sul volume, modelli forti sulle decisioni." },
+  { code: "07", name: "Umano per policy, non per default", detail: "L'umano interviene dove l'azione è costosa, irreversibile o ambigua, non dappertutto." },
 ];
 
+const humanPolicy = [
+  { when: "Reversibile e sotto soglia", then: "Si può automatizzare" },
+  { when: "Costosa", then: "Serve un'approvazione" },
+  { when: "Irreversibile", then: "Approvazione obbligatoria" },
+  { when: "Caso ambiguo", then: "Escalation a un operatore" },
+  { when: "Dati mancanti", then: "Il sistema chiede, non inventa" },
+];
+
+// 05: one pipeline, three domains.
 const stages = [
   { key: "input", name: "Input" },
-  { key: "orchestrator", name: "Orchestrator" },
+  { key: "orchestration", name: "Orchestration" },
   { key: "specialists", name: "Specialists" },
-  { key: "validation", name: "Validation" },
+  { key: "validation", name: "Validation loop" },
+  { key: "gate", name: "Production gate" },
   { key: "action", name: "Action" },
 ];
 
-// One row per domain: the five stages filled in with what they mean there.
-const domains = [
+type Step = { title: string; detail?: string; checks?: string[] };
+
+// One row per domain, steps in the same order as `stages`.
+const domains: { code: string; name: string; kind: string; scenario: string; steps: Step[] }[] = [
   {
     code: "game",
     name: "Agentic Game Studio",
     kind: "Il prototipo, costruito",
     scenario: "Una richiesta di design attraversa lo studio e diventa documentazione approvata.",
-    steps: {
-      input: { title: "Richiesta creativa", detail: "\"Progetta la fazione dei mercanti del nord\"" },
-      orchestrator: { title: "Game Director", detail: "Scompone la richiesta e la assegna ai reparti competenti" },
-      specialists: { title: "53 agenti, 8 reparti", detail: "Lore, quest, sistemi, dialoghi: ognuno sul proprio dominio" },
-      validation: { title: "Cross-domain + QA", detail: "Coerenza con il mondo di gioco, controllo qualità e sicurezza" },
-      action: { title: "Knowledge Base", detail: "Il Director approva in batch, il contenuto viene archiviato" },
-    },
+    steps: [
+      { title: "Richiesta creativa", detail: "\"Progetta la fazione dei mercanti del nord\"" },
+      { title: "Game Director", detail: "Scompone la richiesta e la assegna ai reparti competenti" },
+      { title: "53 agenti, 8 reparti", detail: "Lore, quest, sistemi, dialoghi: ognuno sul proprio dominio" },
+      { title: "Coerenza prima di tutto", checks: ["Coerenza con il concept", "Coerenza di design", "QA e vincoli"] },
+      { title: "Pronto per il documento", checks: ["Completo", "Approvato dal Director"] },
+      { title: "GDD e Knowledge Base", detail: "Il contenuto viene archiviato e diventa riferimento per gli altri reparti" },
+    ],
   },
   {
     code: "living",
     name: "Living operations",
     kind: "Scenario applicato, CX Living",
     scenario: "Una segnalazione di un residente diventa un intervento pianificato e una risposta chiara, con un responsabile umano sulle decisioni che costano.",
-    steps: {
-      input: { title: "Segnalazione residente", detail: "\"Il riscaldamento dell'appartamento 4B non funziona\", da app, email o chat" },
-      orchestrator: { title: "Operations orchestrator", detail: "Classifica tipo e urgenza, recupera unità, contratto e storico ticket" },
-      specialists: { title: "Triage, policy, fornitori, comunicazione", detail: "Diagnosi probabile, chi paga secondo contratto, fornitore disponibile, bozza di risposta" },
-      validation: { title: "Policy, SLA, soglie", detail: "Regole contrattuali, tempi di servizio, limite di spesa, nessun dato personale fuori perimetro" },
-      action: { title: "Ticket e risposta", detail: "Ticket aperto sul gestionale, intervento proposto; sopra soglia approva il property manager" },
-    },
+    steps: [
+      { title: "Richiesta del residente", detail: "\"Il riscaldamento dell'appartamento 4B non funziona\", da app, email o chat" },
+      { title: "Operations orchestrator", detail: "Classifica tipo e urgenza, recupera unità, contratto e storico ticket" },
+      { title: "Triage, policy, fornitori, comunicazione", detail: "Diagnosi probabile, chi paga, fornitore disponibile, bozza di risposta" },
+      { title: "Corretta per il residente e per il contratto", checks: ["Correttezza operativa", "Contratto e policy", "Privacy e permessi"] },
+      { title: "Prontezza operativa", checks: ["SLA rispettato", "Entro le soglie", "Chi deve approvare"] },
+      { title: "Ticket, risposta o escalation", detail: "Ticket sul gestionale e risposta al residente; sopra soglia decide il property manager" },
+    ],
   },
   {
     code: "building",
     name: "Smart Building",
     kind: "Scenario applicato",
     scenario: "Un'anomalia letta dai sensori diventa una diagnosi e un'azione correttiva, senza che un agente tocchi mai direttamente un impianto critico.",
-    steps: {
-      input: { title: "Eventi da BMS e sensori", detail: "Consumo HVAC anomalo al piano 3, temperature fuori range, allarmi" },
-      orchestrator: { title: "Building orchestrator", detail: "Correla e deduplica gli eventi, decide quali specialisti coinvolgere" },
-      specialists: { title: "Energia, HVAC, occupazione, manutenzione", detail: "Analisi dei consumi, diagnosi dell'impianto, presenze reali, piano d'intervento" },
-      validation: { title: "Vincoli fisici e di sicurezza", detail: "Setpoint entro range, comfort minimo garantito, impianti safety-critical esclusi, simulazione prima dell'invio" },
-      action: { title: "Work order o setpoint", detail: "Ordine di lavoro al facility team; modifiche al BMS solo via API autorizzate e reversibili" },
-    },
+    steps: [
+      { title: "Anomalia dai sensori", detail: "Consumo HVAC anomalo, temperature fuori range, allarmi dal BMS" },
+      { title: "Building orchestrator", detail: "Correla e deduplica gli eventi, decide quali specialisti coinvolgere" },
+      { title: "HVAC, energia, occupazione, policy", detail: "Diagnosi dell'impianto, consumi, presenze reali, vincoli d'intervento" },
+      { title: "Diagnosi sostenuta dai dati", checks: ["Diagnosi tecnica", "Vincoli dell'edificio", "Sicurezza"] },
+      { title: "Pronta per agire", checks: ["API autorizzata", "Audit trail", "Rollback", "Soglie di costo"] },
+      { title: "Work order o azione API controllata", detail: "Mai una scrittura diretta su un impianto: solo API autorizzate e reversibili" },
+    ],
   },
 ];
 
-// The honest part: what the prototype gets away with, and what production needs.
+// 06: what the prototype gets away with, and what production needs.
 const gaps = [
   {
     area: "Security",
@@ -100,17 +210,17 @@ const gaps = [
   {
     area: "Observability",
     proto: "Si osserva l'output finale e, se serve, si rilegge la conversazione.",
-    prod: "Tracing di ogni richiesta attraverso tutti gli stadi, metriche di latenza, costo e token per agente, eval continue su casi reali, alert quando la qualità deriva.",
+    prod: "Tracing di ogni richiesta attraverso tutti gli stadi e tutti i giri del loop, metriche di latenza, costo e token per agente, eval continue su casi reali, alert quando la qualità deriva.",
   },
   {
     area: "Audit",
     proto: "La storia vive nei file Markdown della Knowledge Base e nel versionamento del repository.",
-    prod: "Log append-only per ogni decisione: input, contesto recuperato, versione di prompt e modello, esito della validazione, chi ha approvato. Ogni azione è ricostruibile.",
+    prod: "Log append-only per ogni decisione: input, contesto recuperato, versione di prompt e modello, esito di ogni gate, chi ha approvato. Ogni azione è ricostruibile.",
   },
   {
     area: "Human-in-the-loop",
-    proto: "Il Director approva in batch tutto ciò che entra nella Knowledge Base.",
-    prod: "Approvazione proporzionata al rischio: soglie di spesa, azioni irreversibili, comunicazioni sensibili. Escalation con il contesto già pronto, interfaccia di revisione per l'operatore.",
+    proto: "Il Director approva in batch: contenuti creativi, reversibili, a basso rischio.",
+    prod: "Coinvolgimento deciso per policy in base al rischio: soglie di spesa, azioni irreversibili, casi ambigui. Escalation con il contesto già pronto, interfaccia di revisione per l'operatore.",
   },
   {
     area: "API boundaries",
@@ -120,13 +230,14 @@ const gaps = [
   {
     area: "Failure handling",
     proto: "Se un passaggio fallisce, lo si rilancia a mano.",
-    prod: "Timeout, retry con backoff, circuit breaker, coda dei falliti. Se il modello non risponde, il ticket si apre comunque e il caso passa a un operatore.",
+    prod: "Un gate che non passa è un esito previsto, non un errore. Per i guasti veri: timeout, retry con backoff, circuit breaker, coda dei falliti. Se il modello non risponde, il caso passa a un operatore.",
   },
 ];
 
+// 07: the order in which capability to act is earned.
 const rollout = [
-  { name: "Shadow", detail: "Gli agenti propongono, nessuno esegue. Si misura la qualità contro le decisioni reali." },
-  { name: "Assist", detail: "Le proposte arrivano all'operatore come bozze da accettare o correggere." },
+  { name: "Shadow", detail: "Il loop gira su casi reali, nessuno esegue. Si misura quante proposte passano i gate e quanto coincidono con le decisioni umane." },
+  { name: "Assist", detail: "Le proposte validate arrivano all'operatore come bozze da accettare o correggere." },
   { name: "Act con approvazione", detail: "Le azioni a basso rischio partono dopo un clic, le altre restano umane." },
   { name: "Autonomia limitata", detail: "Solo le classi di azione con metriche stabili, reversibili e sotto soglia." },
 ];
@@ -136,15 +247,118 @@ const rollout = [
     <p class="arch-tag" data-reveal>Oltre il gaming</p>
     <h2 data-reveal>Lo stesso pattern, altri domini.</h2>
     <p class="arch-claim" data-reveal>
-      Agentic Game Studio non è un'architettura per videogiochi. È un modo di trasformare richieste
-      ambigue in azioni verificate, con ruoli chiari e un umano sul punto critico. Il dominio cambia,
-      la struttura resta.
+      Agentic Game Studio non è interessante perché ha 53 agenti. È interessante perché nessun
+      output viene considerato concluso finché non supera una sequenza di controlli, e quando un
+      controllo fallisce il sistema torna indietro invece di andare avanti.
     </p>
 
-    <!-- 01: what building the studio taught me -->
+    <!-- 01: the core idea -->
     <div class="block">
       <div class="block-head" data-reveal>
         <span class="block-num">01</span>
+        <h3 class="block-title">Proposte, non risposte</h3>
+      </div>
+      <p class="block-lede" data-reveal>
+        Gli agenti non producono risposte definitive: producono proposte. Ogni proposta deve passare
+        due livelli di verifica diversi prima di diventare qualcosa di reale, e confonderli è
+        l'errore più facile da fare.
+      </p>
+      <ol class="levels">
+        {levels.map((l, i) => (
+          <li class="level" data-reveal>
+            <span class="level-code">{String(i + 1).padStart(2, "0")} · <span lang="en">{l.code}</span></span>
+            <span class="level-question">{l.question}</span>
+            <span class="level-detail">{l.detail}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+
+    <!-- 02: the validation loop -->
+    <div class="block">
+      <div class="block-head" data-reveal>
+        <span class="block-num">02</span>
+        <h3 class="block-title">Il validation loop</h3>
+      </div>
+      <p class="block-lede" data-reveal>
+        Quando un controllo fallisce, non si procede. Si capisce cosa manca o cosa è sbagliato, si
+        riformula o si raccoglie l'informazione mancante, e si verifica di nuovo.
+      </p>
+
+      <!-- The loop in general: the main line, and the branch it takes on a failure. -->
+      <figure class="loop" aria-labelledby="loop-caption" data-reveal>
+        <figcaption id="loop-caption" class="sr-only">
+          Proposta, verifica, production gate, approvazione o azione. Se la verifica fallisce si
+          identifica cosa manca, si riformula e si torna alla verifica.
+        </figcaption>
+        <div class="loop-node loop-node--p">
+          <span class="loop-name">Proposta</span>
+          <span class="loop-sub">gli specialisti propongono</span>
+        </div>
+        <span class="loop-link loop-link--1" aria-hidden="true"></span>
+        <div class="loop-node loop-node--v">
+          <span class="loop-name">Verifica</span>
+          <span class="loop-sub">gate funzionali, di concetto, di policy</span>
+        </div>
+        <span class="loop-link loop-link--2" aria-hidden="true"><span class="loop-link-label">passa</span></span>
+        <div class="loop-node loop-node--g">
+          <span class="loop-name">Production gate</span>
+          <span class="loop-sub">si può eseguire davvero?</span>
+        </div>
+        <span class="loop-link loop-link--3" aria-hidden="true"></span>
+        <div class="loop-node loop-node--a">
+          <span class="loop-name">Approvazione / azione</span>
+          <span class="loop-sub">output finale</span>
+        </div>
+        <div class="loop-fail">
+          <span class="loop-fail-head">✕ Fallisce</span>
+          <span class="loop-fail-step">Identifica cosa manca o è sbagliato</span>
+          <span class="loop-fail-step">Riformula o chiede l'informazione</span>
+          <span class="loop-fail-head">↺ Torna alla verifica</span>
+        </div>
+      </figure>
+
+      <div class="case">
+        <p class="case-lede" data-reveal>
+          Un caso concreto, nel dominio dove la differenza tra una risposta e un'azione si vede di più.
+        </p>
+        <ol class="trace" aria-label="Smart Building: un'anomalia attraverso il loop">
+          {trace.map((row) =>
+            row.kind === "phase" ? (
+              <li class="trace-phase" lang="en">{row.label}</li>
+            ) : (
+              <li class={`trace-row trace-row--${row.kind}`} data-trace>
+                <span class="trace-mark" aria-hidden="true">{markers[row.kind]}</span>
+                <span class="trace-body">
+                  <span class="trace-label">
+                    {row.label}
+                    {(row.kind === "pass" || row.kind === "fail") && (
+                      <span class="trace-outcome">{outcomes[row.kind]}</span>
+                    )}
+                  </span>
+                  <span class="trace-title">{row.title}</span>
+                  {row.detail && <span class="trace-detail">{row.detail}</span>}
+                  {row.checks && (
+                    <ul class="trace-checks">
+                      {row.checks.map((c) => <li>{c}</li>)}
+                    </ul>
+                  )}
+                </span>
+              </li>
+            )
+          )}
+        </ol>
+        <p class="case-note" data-reveal>
+          Non avere abbastanza informazioni è un comportamento corretto. Un sistema agentico robusto
+          non inventa una risposta per forza: si ferma, dice cosa gli manca e riparte quando ce l'ha.
+        </p>
+      </div>
+    </div>
+
+    <!-- 03: what building the studio taught me -->
+    <div class="block">
+      <div class="block-head" data-reveal>
+        <span class="block-num">03</span>
         <h3 class="block-title">Cosa ho imparato costruendolo</h3>
       </div>
       <ol class="lessons">
@@ -157,13 +371,21 @@ const rollout = [
       </ol>
     </div>
 
-    <!-- 02: the principles that survive a change of domain -->
+    <!-- 04: the principles that survive a change of domain -->
     <div class="block">
       <div class="block-head" data-reveal>
-        <span class="block-num">02</span>
+        <span class="block-num">04</span>
         <h3 class="block-title">I principi che si portano altrove</h3>
       </div>
       <ul class="principles">
+        <li class="principle principle--core" data-reveal>
+          <span class="principle-code">01 · il principio centrale</span>
+          <span class="principle-name">Il validation loop</span>
+          <span class="principle-detail">
+            Nessun output è finale finché non passa i suoi gate. Se un gate fallisce, la proposta
+            torna indietro con quello che manca. Tutti gli altri principi servono a far funzionare questo.
+          </span>
+        </li>
         {principles.map((p) => (
           <li class="principle" data-reveal>
             <span class="principle-code">{p.code}</span>
@@ -172,16 +394,32 @@ const rollout = [
           </li>
         ))}
       </ul>
+
+      <div class="policy" data-reveal>
+        <p class="policy-lede">
+          Il coinvolgimento umano non è necessariamente uno step fisso: dipende dal rischio dell'azione.
+        </p>
+        <ul class="policy-list">
+          {humanPolicy.map((p) => (
+            <li class="policy-row">
+              <span class="policy-when">{p.when}</span>
+              <span class="policy-then">{p.then}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
 
-    <!-- 03: one pipeline, three domains -->
+    <!-- 05: one pipeline, three domains -->
     <div class="block">
       <div class="block-head" data-reveal>
-        <span class="block-num">03</span>
-        <h3 class="block-title">Input, Orchestrator, Specialists, Validation, Action</h3>
+        <span class="block-num">05</span>
+        <h3 class="block-title">Stesso pattern, tre domini</h3>
       </div>
       <p class="block-lede" data-reveal>
-        Cinque stadi, sempre nello stesso ordine. Cambia il dominio per vedere come si riempiono.
+        Non è scalabile perché posso aggiungere altri agenti. È scalabile perché il processo di
+        verifica è indipendente dal dominio: cambiano gli specialisti e i gate, la struttura no.
+        Cambia il dominio per vedere come si riempie.
       </p>
 
       <figure class="pattern" data-reveal>
@@ -217,9 +455,16 @@ const rollout = [
               {stages.map((s, j) => (
                 <li class={`stage stage--${s.key}`} data-stage>
                   <span class="stage-index">{String(j + 1).padStart(2, "0")}</span>
-                  <span class="stage-name">{s.name}</span>
-                  <span class="stage-title">{d.steps[s.key as keyof typeof d.steps].title}</span>
-                  <span class="stage-detail">{d.steps[s.key as keyof typeof d.steps].detail}</span>
+                  <span class="stage-name" lang="en">{s.name}</span>
+                  <span class="stage-title">{d.steps[j].title}</span>
+                  {d.steps[j].detail && <span class="stage-detail">{d.steps[j].detail}</span>}
+                  {d.steps[j].checks && (
+                    <ol class="stage-checks">
+                      {d.steps[j].checks!.map((c) => <li>{c}</li>)}
+                    </ol>
+                  )}
+                  {s.key === "validation" && <span class="stage-return">↺ se fallisce, torna indietro</span>}
+                  {s.key === "gate" && <span class="stage-return">✕ se non è pronta, non si esegue</span>}
                   {j < stages.length - 1 && <span class="stage-link" aria-hidden="true"><i></i></span>}
                 </li>
               ))}
@@ -229,15 +474,16 @@ const rollout = [
       </figure>
     </div>
 
-    <!-- 04: prototype versus production -->
+    <!-- 06: prototype versus production -->
     <div class="block">
       <div class="block-head" data-reveal>
-        <span class="block-num">04</span>
+        <span class="block-num">06</span>
         <h3 class="block-title">Prototipo e produzione non sono la stessa cosa</h3>
       </div>
       <p class="block-lede" data-reveal>
-        Il pattern è riutilizzabile, l'implementazione no. Un sistema che apre ticket, parla con i
-        residenti o muove un impianto richiede garanzie che un prototipo personale non deve avere.
+        Il prototipo dimostra il pattern. La produzione richiede infrastruttura e garanzie che un
+        prototipo personale non deve avere: il loop è riutilizzabile, ma un'implementazione che apre
+        ticket, parla con i residenti o muove un impianto ha bisogno di controlli molto più forti.
         Questa è la distanza, voce per voce.
       </p>
 
@@ -261,22 +507,41 @@ const rollout = [
           </div>
         ))}
       </div>
+    </div>
 
-      <div class="rollout">
-        <p class="rollout-lede" data-reveal>
-          Per questo non partirei dall'autonomia. Partirei dall'osservazione, e allargherei il perimetro
-          solo dove i numeri lo giustificano.
-        </p>
-        <ol class="rollout-steps">
-          {rollout.map((r, i) => (
-            <li class="rollout-step" data-reveal>
-              <span class="rollout-index">Fase {i + 1}</span>
-              <span class="rollout-name">{r.name}</span>
-              <span class="rollout-detail">{r.detail}</span>
-            </li>
-          ))}
-        </ol>
+    <!-- 07: rollout -->
+    <div class="block">
+      <div class="block-head" data-reveal>
+        <span class="block-num">07</span>
+        <h3 class="block-title">Prima il loop, poi l'autonomia</h3>
       </div>
+      <p class="rollout-lede" data-reveal>
+        Non partirei dall'autonomia. Partirei dal loop: prima dimostri che il sistema produce proposte
+        affidabili, poi misuri, poi introduci la capacità di agire, un pezzo alla volta.
+      </p>
+      <ol class="rollout-steps">
+        {rollout.map((r, i) => (
+          <li class="rollout-step" data-reveal>
+            <span class="rollout-index">Fase {i + 1}</span>
+            <span class="rollout-name">{r.name}</span>
+            <span class="rollout-detail">{r.detail}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+
+    <!-- Closing thesis -->
+    <div class="thesis" data-reveal>
+      <p class="thesis-lines" lang="en">
+        <span>The domain changes.</span>
+        <span>The agents change.</span>
+        <span>The tools change.</span>
+        <span class="thesis-accent">The validation loop stays.</span>
+      </p>
+      <p class="thesis-support">
+        È questo che rende il pattern riutilizzabile. Non scala il numero di agenti: scala un processo
+        di proposta, verifica, correzione e approvazione.
+      </p>
     </div>
   </div>
 </section>
@@ -347,14 +612,384 @@ const rollout = [
     text-wrap: pretty;
   }
 
-  /* ---------- 01 Lessons ---------- */
+  /* ---------- 01 Two levels ---------- */
+
+  .levels {
+    list-style: none;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+  @media (min-width: 760px) {
+    .levels { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+
+  .level {
+    background: var(--bg);
+    padding: 1.75rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    border-top: 2px solid var(--accent);
+  }
+
+  .level-code {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--accent);
+  }
+
+  .level-question {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(1.15rem, 2vw, 1.4rem);
+    line-height: 1.25;
+    text-wrap: pretty;
+  }
+
+  .level-detail {
+    color: var(--muted);
+    font-size: 0.95rem;
+    line-height: 1.55;
+  }
+
+  /* ---------- 02 The loop ---------- */
+
+  /* Narrow: one column, the failure branch indented under "Verifica".
+     Wide: the main line runs left to right, the branch hangs under "Verifica". */
+  .loop {
+    margin: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "p" "l1" "v" "f" "l2" "g" "l3" "a";
+    max-width: 30rem;
+  }
+  @media (min-width: 900px) {
+    .loop {
+      max-width: none;
+      grid-template-columns: minmax(0, 1fr) 2.5rem minmax(0, 1fr) 4.5rem minmax(0, 1fr) 2.5rem minmax(0, 1fr);
+      grid-template-areas:
+        "p l1 v l2 g l3 a"
+        ". .  f .  . .  .";
+      align-items: center;
+    }
+  }
+
+  .loop-node--p { grid-area: p; }
+  .loop-node--v { grid-area: v; }
+  .loop-node--g { grid-area: g; }
+  .loop-node--a { grid-area: a; }
+  .loop-link--1 { grid-area: l1; }
+  .loop-link--2 { grid-area: l2; }
+  .loop-link--3 { grid-area: l3; }
+  .loop-fail { grid-area: f; }
+
+  .loop-node {
+    text-align: center;
+    padding: 1.1rem 1.25rem;
+    border: 1px solid var(--border-strong);
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    align-self: stretch;
+    justify-content: center;
+  }
+  .loop-node--v {
+    border-color: var(--accent);
+  }
+
+  .loop-name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.05rem;
+    line-height: 1.25;
+  }
+
+  .loop-sub {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* Connectors: the same hairline as the studio diagram, here already filled. */
+  .loop-link {
+    position: relative;
+    display: block;
+    width: 1px;
+    height: 2.5rem;
+    background: var(--accent);
+    justify-self: center;
+  }
+  @media (min-width: 900px) {
+    .loop-link {
+      width: 100%;
+      height: 1px;
+      justify-self: stretch;
+    }
+  }
+
+  .loop-link-label {
+    position: absolute;
+    left: 0.6rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  @media (min-width: 900px) {
+    .loop-link-label {
+      left: 50%;
+      top: auto;
+      bottom: 0.45rem;
+      transform: translateX(-50%);
+    }
+  }
+
+  .loop-fail {
+    margin: 1rem 0 1rem 2rem;
+    padding: 1rem 1.1rem;
+    border: 1px dashed var(--accent);
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    position: relative;
+  }
+  /* On narrow screens the branch reads as an aside of "Verifica": a short
+     dashed tie on its left edge. */
+  .loop-fail::before {
+    content: "";
+    position: absolute;
+    left: -2rem;
+    top: 1.4rem;
+    width: 2rem;
+    height: 1px;
+    border-top: 1px dashed var(--accent);
+  }
+  @media (min-width: 900px) {
+    .loop-fail {
+      margin: 2.5rem 0 0;
+    }
+    /* Two dashed ties up to "Verifica": down on failure, back up on retry. */
+    .loop-fail::before,
+    .loop-fail::after {
+      content: "";
+      position: absolute;
+      top: -2.5rem;
+      width: 1px;
+      height: 2.5rem;
+      border-top: none;
+      border-left: 1px dashed var(--accent);
+    }
+    .loop-fail::before { left: 30%; }
+    .loop-fail::after { left: 70%; }
+  }
+
+  .loop-fail-head {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--accent);
+  }
+
+  .loop-fail-step {
+    font-size: 0.9rem;
+    line-height: 1.45;
+    padding-left: 1rem;
+    position: relative;
+  }
+  .loop-fail-step::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.6em;
+    width: 5px;
+    height: 5px;
+    background: var(--accent);
+  }
+
+  /* The worked case */
+
+  .case {
+    margin-top: 4.5rem;
+  }
+
+  .case-lede {
+    font-size: clamp(1.05rem, 1.6vw, 1.2rem);
+    max-width: 58ch;
+    margin-bottom: 2rem;
+    text-wrap: pretty;
+  }
+
+  .trace {
+    list-style: none;
+    max-width: 46rem;
+    position: relative;
+  }
+  /* The spine the markers sit on */
+  .trace::before {
+    content: "";
+    position: absolute;
+    left: calc(1.1rem - 0.5px);
+    top: 0.5rem;
+    bottom: 0.5rem;
+    width: 1px;
+    background: var(--border-strong);
+  }
+
+  .trace-phase {
+    position: relative;
+    margin: 1.75rem 0 0.75rem 3.1rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+  }
+
+  .trace-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: 2.2rem minmax(0, 1fr);
+    gap: 0.9rem;
+    padding: 0.5rem 0;
+  }
+
+  .trace-mark {
+    width: 2.2rem;
+    height: 2.2rem;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border-strong);
+    background: var(--bg);
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--muted);
+    position: relative;
+    transition: border-color 0.25s, color 0.25s, background 0.25s;
+  }
+
+  .trace-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.15rem 0 0.5rem;
+  }
+
+  .trace-label {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+  }
+
+  .trace-outcome {
+    padding: 0.1rem 0.45rem;
+    border: 1px solid var(--border-strong);
+    color: var(--fg);
+  }
+
+  .trace-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.05rem;
+    line-height: 1.3;
+    text-wrap: pretty;
+  }
+
+  .trace-detail {
+    color: var(--muted);
+    font-size: 0.92rem;
+    line-height: 1.5;
+    max-width: 58ch;
+  }
+
+  .trace-checks {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.35rem;
+  }
+  .trace-checks li {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    padding: 0.3rem 0.65rem;
+    border: 1px solid var(--border-strong);
+  }
+  .trace-checks li::before {
+    content: "✓ ";
+    color: var(--muted);
+  }
+
+  /* Outcomes: a pass is quiet, a failure is the one thing in accent. */
+  .trace-row--pass .trace-mark,
+  .trace-row--action .trace-mark {
+    color: var(--fg);
+  }
+  .trace-row--fail .trace-mark {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+  }
+  .trace-row--fail .trace-outcome {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .trace-row--fail .trace-detail {
+    color: var(--fg);
+  }
+  .trace-row--response .trace-mark,
+  .trace-row--rerun .trace-mark {
+    border-style: dashed;
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .trace-row--action .trace-mark {
+    border-color: var(--fg);
+  }
+
+  /* A row the scroll has reached */
+  .trace-row.is-lit .trace-mark {
+    border-color: var(--accent);
+  }
+  .trace-row--pass.is-lit .trace-mark,
+  .trace-row--step.is-lit .trace-mark,
+  .trace-row--action.is-lit .trace-mark {
+    background: var(--bg-elevated);
+  }
+
+  .case-note {
+    margin-top: 2.5rem;
+    padding-left: 0.9rem;
+    border-left: 2px solid var(--accent);
+    max-width: 58ch;
+    text-wrap: pretty;
+  }
+
+  /* ---------- 03 Lessons ---------- */
 
   .lessons {
     list-style: none;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 2.5rem 4rem;
-    counter-reset: lesson;
   }
   @media (min-width: 820px) {
     .lessons { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -385,7 +1020,7 @@ const rollout = [
     text-wrap: pretty;
   }
 
-  /* ---------- 02 Principles ---------- */
+  /* ---------- 04 Principles ---------- */
 
   .principles {
     list-style: none;
@@ -416,6 +1051,22 @@ const rollout = [
     border-top-color: var(--accent);
   }
 
+  /* The loop spans the full row: the others hang off it. */
+  .principle--core {
+    grid-column: 1 / -1;
+    padding: 2rem 1.5rem;
+    border-top-color: var(--accent);
+    background: var(--bg-elevated);
+  }
+  .principle--core .principle-name {
+    font-size: clamp(1.4rem, 3vw, 2rem);
+  }
+  .principle--core .principle-detail {
+    color: var(--fg);
+    font-size: 1rem;
+    max-width: 62ch;
+  }
+
   .principle-code {
     font-family: var(--font-mono);
     font-size: 0.72rem;
@@ -435,7 +1086,56 @@ const rollout = [
     line-height: 1.55;
   }
 
-  /* ---------- 03 Pattern ---------- */
+  .policy {
+    margin-top: 3rem;
+  }
+
+  .policy-lede {
+    font-size: clamp(1.05rem, 1.6vw, 1.2rem);
+    max-width: 58ch;
+    margin-bottom: 1.5rem;
+    text-wrap: pretty;
+  }
+
+  .policy-list {
+    list-style: none;
+    border: 1px solid var(--border);
+    max-width: 46rem;
+  }
+
+  .policy-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.2rem;
+    padding: 0.9rem 1.25rem;
+    border-top: 1px solid var(--border);
+  }
+  .policy-row:first-child {
+    border-top: none;
+  }
+  @media (min-width: 640px) {
+    .policy-row {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 1.5rem;
+    }
+  }
+
+  .policy-when {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .policy-then {
+    font-size: 0.95rem;
+  }
+  .policy-then::before {
+    content: "→ ";
+    color: var(--accent);
+    font-family: var(--font-mono);
+  }
+
+  /* ---------- 05 Pattern ---------- */
 
   .pattern {
     margin: 0;
@@ -515,17 +1215,25 @@ const rollout = [
     text-wrap: pretty;
   }
 
-  /* Vertical on small screens, a left-to-right pipe on wide ones. */
+  /* One column with vertical connectors on small screens; two columns read in
+     index order in the middle; a left-to-right pipe only where six stages fit. */
   .pipe {
     list-style: none;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 2.25rem;
   }
-  @media (min-width: 1000px) {
+  @media (min-width: 700px) and (max-width: 1239px) {
     .pipe {
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 1.5rem;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.25rem;
+    }
+    .pipe .stage-link { display: none; }
+  }
+  @media (min-width: 1240px) {
+    .pipe {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 1.25rem;
     }
   }
 
@@ -534,12 +1242,13 @@ const rollout = [
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
-    padding: 1.1rem 1.1rem 1.25rem;
+    padding: 1.1rem 1rem 1.25rem;
     border: 1px solid var(--border-strong);
     background: var(--bg);
   }
-  .stage--orchestrator,
-  .stage--validation {
+  .stage--orchestration,
+  .stage--validation,
+  .stage--gate {
     border-color: var(--accent);
   }
   .stage.is-lit {
@@ -554,24 +1263,57 @@ const rollout = [
 
   .stage-name {
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     color: var(--accent);
   }
 
   .stage-title {
     font-family: var(--font-display);
     font-weight: 600;
-    font-size: 1.02rem;
+    font-size: 1rem;
     line-height: 1.25;
     margin-top: 0.2rem;
   }
 
   .stage-detail {
-    font-size: 0.88rem;
+    font-size: 0.86rem;
     color: var(--muted);
     line-height: 1.5;
+  }
+
+  .stage-checks {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    margin-top: 0.2rem;
+  }
+  .stage-checks li {
+    font-size: 0.84rem;
+    color: var(--muted);
+    line-height: 1.4;
+    padding-left: 0.9rem;
+    position: relative;
+  }
+  .stage-checks li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 4px;
+    height: 4px;
+    background: var(--accent);
+  }
+
+  .stage-return {
+    margin-top: auto;
+    padding-top: 0.6rem;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--accent);
+    line-height: 1.4;
   }
 
   /* Connectors: the same hairline-with-accent-fill as the studio diagram. */
@@ -592,13 +1334,13 @@ const rollout = [
     transform: scaleY(0);
     transform-origin: top;
   }
-  @media (min-width: 1000px) {
+  @media (min-width: 1240px) {
     .stage-link {
       left: auto;
-      right: -1.5rem;
+      right: -1.25rem;
       bottom: auto;
       top: 50%;
-      width: 1.5rem;
+      width: 1.25rem;
       height: 1px;
     }
     .stage-link i {
@@ -607,7 +1349,7 @@ const rollout = [
     }
   }
 
-  /* ---------- 04 Prototype vs production ---------- */
+  /* ---------- 06 Prototype vs production ---------- */
 
   .gap-table {
     border: 1px solid var(--border);
@@ -685,9 +1427,7 @@ const rollout = [
     .gap-label { display: none; }
   }
 
-  .rollout {
-    margin-top: 4rem;
-  }
+  /* ---------- 07 Rollout ---------- */
 
   .rollout-lede {
     font-size: clamp(1.05rem, 1.6vw, 1.2rem);
@@ -739,9 +1479,40 @@ const rollout = [
     line-height: 1.55;
   }
 
+  /* ---------- Closing thesis ---------- */
+
+  .thesis {
+    margin-top: 7rem;
+    padding-top: 3rem;
+    border-top: 1px solid var(--border-strong);
+  }
+
+  .thesis-lines {
+    max-width: none;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(2rem, 5.5vw, 4.25rem);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+  }
+  .thesis-lines span {
+    display: block;
+  }
+  .thesis-accent {
+    color: var(--accent);
+  }
+
+  .thesis-support {
+    margin-top: 1.75rem;
+    font-size: clamp(1.05rem, 1.8vw, 1.3rem);
+    max-width: 58ch;
+    text-wrap: pretty;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .tab,
-    .principle { transition: none; }
+    .principle,
+    .trace-mark { transition: none; }
   }
 </style>
 
@@ -752,12 +1523,40 @@ const rollout = [
   gsap.registerPlugin(ScrollTrigger);
 
   const pattern = document.querySelector<HTMLElement>(".pattern");
+  const trace = document.querySelector<HTMLElement>(".trace");
   const tabs = gsap.utils.toArray<HTMLButtonElement>(".pattern [role='tab']");
   const panels = gsap.utils.toArray<HTMLElement>(".pattern [role='tabpanel']");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const wide = window.matchMedia("(min-width: 1000px)");
+  const wide = window.matchMedia("(min-width: 1240px)");
 
-  /* ---- The signal runs through the five stages of the visible panel ---- */
+  /* ---- The worked case: the scroll walks the anomaly through the gates ----
+     Scrubbed like the studio diagram. Every row is readable without it; what
+     moves is how far the case has got, including the step back on the failure. */
+  if (trace) {
+    const rows = gsap.utils.toArray<HTMLElement>("[data-trace]", trace);
+
+    if (reduceMotion) {
+      rows.forEach((r) => r.classList.add("is-lit"));
+    } else {
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: trace,
+          start: "top 75%",
+          end: "bottom 60%",
+          scrub: 0.5,
+        },
+      });
+      rows.forEach((row, i) => {
+        tl.to(row, {
+          duration: 0.1,
+          onStart: () => row.classList.add("is-lit"),
+          onReverseComplete: () => row.classList.remove("is-lit"),
+        }, i * 0.5);
+      });
+    }
+  }
+
+  /* ---- The signal runs through the six stages of the visible panel ---- */
   function run(panel: HTMLElement) {
     const stages = gsap.utils.toArray<HTMLElement>("[data-stage]", panel);
     const links = gsap.utils.toArray<HTMLElement>(".stage-link i", panel);
@@ -775,9 +1574,9 @@ const rollout = [
 
     const tl = gsap.timeline({ defaults: { ease: "none" } });
     stages.forEach((stage, i) => {
-      const at = i * 0.32;
+      const at = i * 0.3;
       tl.call(() => stage.classList.add("is-lit"), [], at);
-      if (links[i]) tl.to(links[i], { [axis]: 1, duration: 0.26 }, at + 0.04);
+      if (links[i]) tl.to(links[i], { [axis]: 1, duration: 0.24 }, at + 0.04);
     });
   }
 
