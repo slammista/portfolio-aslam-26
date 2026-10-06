@@ -1,24 +1,10 @@
 ---
-// The section that follows Agentic Game Studio: why the studio's architecture
-// holds outside game pre-production. The thesis is the validation loop, not
-// the number of agents.
+// What I built, the pattern I derived from it, where it could be applied.
+// Only Agentic Game Studio is built: the other two domains are labelled as
+// possible applications. Each fact about the studio was checked against its
+// repository (CLAUDE.md, RULES_BASE.md, the QA agents).
 
-// 01: the two levels of checking a proposal goes through.
-const levels = [
-  {
-    code: "Validation",
-    question: "Quello che abbiamo prodotto è corretto rispetto al problema?",
-    detail: "Coerenza, completezza, vincoli del dominio. Se non passa, la proposta torna indietro.",
-  },
-  {
-    code: "Production gate",
-    question: "Siamo tecnicamente, operativamente e legalmente autorizzati a trasformarla in un'azione reale?",
-    detail: "Permessi, API, tracciabilità, reversibilità, soglie. Se non è pronta, non si esegue.",
-  },
-];
-
-// 02: one case walked through the loop. Smart Retail, because in a physical
-// store a wrong answer becomes a wrong action: an alarm switched off for nobody.
+type Step = { title: string; detail?: string; checks?: string[] };
 type TraceRow =
   | { kind: "phase"; label: string }
   | {
@@ -28,111 +14,42 @@ type TraceRow =
       detail?: string;
       checks?: string[];
     };
+type Row = { when: string; then: string };
+type Domain = {
+  code: string;
+  name: string;
+  kind: string;
+  built: boolean;
+  scenario: string;
+  steps: Step[];
+  trace?: { title: string; label: string; rows: TraceRow[] };
+  groups?: { title: string; rows: Row[] };
+  note?: string;
+};
 
-const trace: TraceRow[] = [
-  {
-    kind: "step",
-    label: "Input",
-    title: "\"Apertura prevista alle 09:00. Alle 09:10 l'allarme è ancora inserito e non risultano ingressi.\"",
-    detail: "Porta chiusa, nessuna presenza rilevata.",
-  },
-  {
-    kind: "step",
-    label: "Specialists",
-    title: "Operations, Security, Occupancy, Schedule, Policy",
-    detail: "Ognuno legge solo i propri dati. La proposta: mancata apertura, disattivare l'allarme e aprire il negozio.",
-  },
-  { kind: "phase", label: "Validation loop" },
-  {
-    kind: "pass",
-    label: "Gate 01 · Validazione funzionale",
-    title: "Il negozio è davvero previsto aperto?",
-    detail: "Calendario e orari lo confermano: nessuna chiusura straordinaria.",
-  },
-  {
-    kind: "pass",
-    label: "Gate 02 · Validazione operativa",
-    title: "Il personale autorizzato dovrebbe essere presente?",
-    detail: "Sì: il turno di apertura è assegnato. Ma il dipendente designato non risulta arrivato.",
-  },
-  {
-    kind: "fail",
-    label: "Gate 03 · Security e policy",
-    title: "L'allarme può essere disattivato automaticamente?",
-    detail: "No. Manca: un responsabile autorizzato sul posto o raggiungibile.",
-  },
-  {
-    kind: "response",
-    label: "Risposta del sistema",
-    title: "Non disattiva l'allarme. Notifica il manager.",
-    detail: "Il messaggio parte con il contesto già pronto: orario previsto, stato dell'allarme, ingressi, turno assegnato.",
-  },
-  {
-    kind: "step",
-    label: "Nuovo contesto",
-    title: "Il manager conferma che il dipendente designato non può aprire",
-  },
-  {
-    kind: "rerun",
-    label: "Re-run",
-    title: "I controlli ripartono: trovato un altro responsabile autorizzato",
-  },
-  {
-    kind: "pass",
-    label: "Gate 03 · di nuovo",
-    title: "Responsabile autorizzato identificato, policy rispettata",
-  },
-  { kind: "phase", label: "Production gate" },
-  {
-    kind: "pass",
-    label: "Gate 04 · Production readiness",
-    title: "Si può eseguire adesso, in modo tracciabile e reversibile?",
-    checks: ["Permesso verificato", "Policy verificata", "Azione reversibile", "Audit trail attivo"],
-  },
-  { kind: "phase", label: "Action" },
-  {
-    kind: "action",
-    label: "Output finale",
-    title: "Disattivazione controllata dell'allarme",
-    detail: "All'arrivo del nuovo responsabile, tramite un'integrazione autorizzata. Se l'integrazione non lo permette, escalation: l'allarme lo disattiva una persona.",
-  },
-];
-
-const markers = { step: "→", pass: "✓", fail: "✕", response: "!", rerun: "↺", action: "→" } as const;
-const outcomes = { pass: "Passa", fail: "Non passa" } as const;
-
-// 03: what building the studio taught me.
+// 02: what building the studio taught me. Each item is an observation and the
+// architectural rule it points to; nothing the Studio section already says.
 const lessons = [
   {
-    title: "Il limite non è il modello, è il contesto",
-    body: "Un agente che legge tutto sbaglia di più e costa di più. Dare a ogni specialista un solo dominio della Knowledge Base ha reso le risposte più precise e i costi prevedibili.",
+    title: "Responsabilità delimitate",
+    body: "Ogni agente ha un dominio e un'autorità scritta. Gli specialisti non si chiamano tra loro: passano dall'orchestratore, e i conflitti tra reparti li arbitra il Director.",
   },
   {
-    title: "L'autorità va dichiarata, non dedotta",
-    body: "Ogni ruolo ha un perimetro scritto: cosa può leggere, cosa può produrre, a chi risponde. Quando due agenti si contraddicono, decide il Director, non il caso.",
+    title: "Contesto limitato",
+    body: "Più contesto non dà risposte migliori, dà più rumore. Lo specialista riceve ciò che serve al suo compito, non tutto.",
   },
   {
-    title: "Un controllo che fallisce deve rimandare indietro",
-    body: "Un prompt migliore non sostituisce un controllo, e un controllo che si limita a segnalare non basta. Cross-domain check e QA sono stadi separati: se un contenuto non passa, torna a chi l'ha prodotto, e nella Knowledge Base non entra.",
+    title: "La verifica è architettura",
+    body: "Nello studio nessun contenuto viene approvato senza passare QA e Director, che possono respingerlo. Il pattern rende esplicito ciò che lì non è automatizzato: rimandare indietro, correggere, verificare di nuovo.",
   },
   {
-    title: "Il modello si sceglie per rischio e costo",
-    body: "Haiku sui task ripetitivi e sul QA, Sonnet dove serve giudizio. Lo stesso criterio vale per qualsiasi dominio: il modello più capace solo dove l'errore costa.",
+    title: "Autorità esplicita",
+    body: "Poter fare una cosa non vuol dire doverla poter fare. Nello studio ogni agente scrive solo dove la sua autorità lo permette, e un controllo di sicurezza è previsto prima di ogni scrittura.",
   },
   {
-    title: "Quanto coinvolgere l'umano è una scelta",
-    body: "Nello studio il Director approva in batch, perché i contenuti sono reversibili e il rischio è basso. Non è una regola dell'architettura: è una policy, e in un altro dominio cambia.",
+    title: "Il coinvolgimento umano è una policy",
+    body: "Nello studio il Director approva in batch: contenuti creativi e reversibili. Con azioni reali la stessa scelta cambia.",
   },
-];
-
-// 04: the principles that survive a change of domain. The loop comes first.
-const principles = [
-  { code: "02", name: "Orchestratore unico", detail: "Un punto che classifica, smista e arbitra. Gli specialisti non si chiamano a vicenda." },
-  { code: "03", name: "Specialisti a contesto limitato", detail: "Ogni agente vede solo il dominio che gli serve: meno rumore, meno superficie di errore." },
-  { code: "04", name: "Fonte di verità condivisa", detail: "Lo stato vive in una Knowledge Base strutturata, non nella memoria di una conversazione." },
-  { code: "05", name: "Production gate separato", detail: "Una proposta corretta non è ancora un'azione autorizzata. Sono due controlli diversi." },
-  { code: "06", name: "Routing per rischio", detail: "Modelli leggeri sul volume, modelli forti sulle decisioni." },
-  { code: "07", name: "Umano per policy, non per default", detail: "L'umano interviene dove l'azione è costosa, irreversibile o ambigua, non dappertutto." },
 ];
 
 const humanPolicy = [
@@ -143,7 +60,21 @@ const humanPolicy = [
   { when: "Dati mancanti", then: "Il sistema chiede, non inventa" },
 ];
 
-// 05: one pipeline, three domains.
+// 03: what changes and what stays when the domain changes.
+const scale = [
+  {
+    code: "Cambia",
+    question: "Il dominio, gli agenti specialisti, gli strumenti, le regole e i gate.",
+    detail: "Input, conoscenza, policy e permessi sono propri di ogni dominio.",
+  },
+  {
+    code: "Resta",
+    question: "L'orchestrazione, il validation loop, il rework, il production gate e l'escalation.",
+    detail: "Un processo di proposta, verifica, correzione e approvazione.",
+  },
+];
+
+// 04: one pipeline, three domains.
 const stages = [
   { key: "input", name: "Input" },
   { key: "orchestration", name: "Orchestration" },
@@ -153,157 +84,231 @@ const stages = [
   { key: "action", name: "Action" },
 ];
 
-type Step = { title: string; detail?: string; checks?: string[] };
-type Row = { when: string; then: string };
-type Domain = {
-  code: string;
-  name: string;
-  kind: string;
-  scenario: string;
-  steps: Step[];
-  // Concrete situations for the same loop, grouped (opening, during, closing...).
-  groups?: { title: string; rows: Row[] }[];
-  note?: string;
-};
+const markers = { step: "→", pass: "✓", fail: "✕", response: "!", rerun: "↺", action: "→" } as const;
+const outcomes = { pass: "Passa", fail: "Non passa" } as const;
 
-// One row per domain, steps in the same order as `stages`. The stages never
-// change: input, specialists, knowledge, policies, tools and gates do.
+// Smart Retail's worked case: a missed opening. It ends in a notification, not
+// in the system switching the alarm off: the action it may take is the one it
+// is authorized and able to take.
+const retailTrace: TraceRow[] = [
+  {
+    kind: "step",
+    label: "Input",
+    title: "Apertura prevista alle 09:00. Alle 09:10 l'allarme è ancora inserito, la porta è chiusa e non c'è nessuna presenza.",
+  },
+  {
+    kind: "step",
+    label: "Specialists → Proposal",
+    title: "Operations, Security, Occupancy, Schedule, Policy",
+    detail: "Ognuno legge solo i propri dati. Proposta: possibile mancata apertura; verificare chi può aprire e se l'allarme può essere disattivato in sicurezza.",
+  },
+  { kind: "phase", label: "Validation loop" },
+  {
+    kind: "pass",
+    label: "Validation · 01",
+    title: "Il negozio è davvero previsto aperto?",
+    detail: "Calendario e orari lo confermano.",
+  },
+  {
+    kind: "fail",
+    label: "Validation · 02",
+    title: "Un responsabile autorizzato è presente o raggiungibile?",
+    detail: "No. Manca l'informazione: chi può aprire oggi.",
+  },
+  {
+    kind: "response",
+    label: "Risposta del sistema",
+    title: "Non procede. Notifica il manager.",
+    detail: "Con il contesto già pronto: orario previsto, stato dell'allarme, ingressi, turno assegnato.",
+  },
+  {
+    kind: "rerun",
+    label: "Re-run",
+    title: "Il manager indica un responsabile reperibile: i controlli ripartono con il nuovo contesto.",
+  },
+  {
+    kind: "pass",
+    label: "Validation · 02 · di nuovo",
+    title: "Responsabile reperibile autorizzato identificato.",
+  },
+  { kind: "phase", label: "Production gate" },
+  {
+    kind: "pass",
+    label: "Production gate",
+    title: "Si può agire adesso, in modo tracciato e reversibile?",
+    checks: ["Permessi di notifica verificati", "Integrazione disponibile", "Audit trail attivo", "Nessun comando sull'allarme"],
+  },
+  { kind: "phase", label: "Action" },
+  {
+    kind: "action",
+    label: "Output finale",
+    title: "Procedura di apertura inviata al responsabile reperibile, ticket aperto.",
+    detail: "L'allarme lo disattiva la persona autorizzata, non il sistema.",
+  },
+];
+
+// Private Agentic AI's worked case: the answer the system must not invent.
+const enterpriseTrace: TraceRow[] = [
+  {
+    kind: "step",
+    label: "Input",
+    title: "Un dipendente chiede: «Qual è la procedura per questo tipo di richiesta?»",
+  },
+  {
+    kind: "step",
+    label: "Orchestration → Specialists",
+    title: "L'orchestratore identifica reparto, identità e ruolo",
+    detail: "Passa la richiesta allo specialista del reparto, che cerca solo nella knowledge base del reparto. Proposta: la procedura trovata nei documenti.",
+  },
+  { kind: "phase", label: "Validation loop" },
+  {
+    kind: "pass",
+    label: "Validation · 01",
+    title: "La fonte è pertinente e aggiornata?",
+  },
+  {
+    kind: "fail",
+    label: "Validation · 02",
+    title: "Il documento necessario è accessibile a questo utente?",
+    detail: "No: la fonte richiesta è fuori dal suo ambito di autorizzazione.",
+  },
+  {
+    kind: "response",
+    label: "Risposta del sistema",
+    title: "Non inventa una risposta. Dice cosa manca.",
+    detail: "Può chiedere l'autorizzazione, inoltrare la richiesta, usare una fonte alternativa autorizzata, o dichiarare che non può rispondere.",
+  },
+  {
+    kind: "rerun",
+    label: "Re-run",
+    title: "L'utente ottiene l'accesso o indica una fonte autorizzata: i controlli ripartono.",
+  },
+  {
+    kind: "pass",
+    label: "Validation · 02 · di nuovo",
+    title: "Fonte autorizzata, informazione sufficiente, risposta coerente con la policy.",
+  },
+  { kind: "phase", label: "Production gate" },
+  {
+    kind: "pass",
+    label: "Production gate",
+    title: "Si può rispondere ed eventualmente agire?",
+    checks: ["Fonti citate", "Richiesta registrata nel log", "Approvazione se serve un'azione"],
+  },
+  { kind: "phase", label: "Action" },
+  {
+    kind: "action",
+    label: "Output finale",
+    title: "Risposta con le fonti citate.",
+  },
+];
+
+// One row per domain, steps in the same order as `stages`.
 const domains: Domain[] = [
   {
     code: "game",
     name: "Agentic Game Studio",
-    kind: "Il pattern, costruito",
-    scenario: "Una richiesta di design attraversa lo studio e diventa documentazione approvata.",
+    kind: "Costruito",
+    built: true,
+    scenario: "L'unico dei tre casi che esiste. Una richiesta di design attraversa lo studio e diventa contenuto approvato.",
     steps: [
-      { title: "Richiesta creativa", detail: "\"Progetta la fazione dei mercanti del nord\"" },
-      { title: "Game Director", detail: "Scompone la richiesta e la assegna ai reparti competenti" },
-      { title: "53 agenti, 8 reparti", detail: "Lore, quest, sistemi, dialoghi: ognuno sul proprio dominio" },
-      { title: "Coerenza prima di tutto", checks: ["Coerenza con il concept", "Coerenza di design", "QA e vincoli"] },
-      { title: "Pronto per il documento", checks: ["Completo", "Approvato dal Director"] },
-      { title: "GDD e Knowledge Base", detail: "Il contenuto viene archiviato e diventa riferimento per gli altri reparti" },
+      { title: "Richiesta di design", detail: "Esempio: \"Progetta la fazione dei mercanti del nord\"" },
+      { title: "Director e orchestratori di reparto", detail: "Il Director smista; ogni reparto ha il suo orchestratore" },
+      { title: "53 agenti, 8 reparti", detail: "Ognuno legge solo le cartelle indicate nel proprio ruolo" },
+      { title: "QA Lead e cross-domain", checks: ["Coerenza tra reparti: world ↔ lore, sistemi ↔ quest", "Può respingere o chiedere revisione"] },
+      { title: "Approvazione e controlli di scrittura", checks: ["Approvazione del Director, in batch", "Security guard prima di scrivere: autorità, lock, percorso", "Ogni modifica nel log"] },
+      { title: "Knowledge Base", detail: "Contenuto approvato, in Markdown" },
     ],
+    note: "QA e Director possono respingere o chiedere revisione, ma rimandare indietro, correggere e riverificare non è automatizzato. È la parte che il pattern rende esplicita.",
   },
   {
     code: "retail",
     name: "Smart Retail",
-    kind: "Applicato: operazioni fisiche",
-    scenario: "Un negozio di abbigliamento osservato da sistemi diversi: temperatura, HVAC, ingressi, presenze, porte, serrature, allarme, orari previsti ed effettivi, calendario, consumi. Il valore non è un'AI che gestisce il negozio: è che eventi separati vengono correlati e trasformati in decisioni operative attraverso policy, validation e production gate. È un possibile modo di applicare il pattern.",
+    kind: "Applicazione possibile · ambiente fisico",
+    built: false,
+    scenario: "Un negozio di abbigliamento osservato da sensori, porte, allarme, orari e consumi. Un orchestratore correla gli eventi e coinvolge specialisti con permessi delimitati: nessuno può fare tutto. Scenario ipotetico.",
     steps: [
-      { title: "Eventi dal negozio", detail: "Sensori, porte, allarme, ingressi, orari, calendario" },
-      { title: "Store orchestrator", detail: "Correla gli eventi nel tempo e decide quali specialisti coinvolgere" },
-      { title: "Operations, Security, Occupancy, HVAC, Schedule, Policy", detail: "Permessi delimitati: chi legge l'allarme non può disattivarlo" },
-      { title: "La situazione è quella che sembra?", checks: ["Eventi coerenti tra loro", "Orari e calendario", "Sensori affidabili"] },
-      { title: "Si può agire?", checks: ["Azione autorizzata", "Reversibile", "Policy di sicurezza", "Audit trail"] },
-      { title: "Azione controllata o escalation", detail: "Setpoint, allarme, notifica al manager: solo tramite integrazioni autorizzate" },
+      { title: "Eventi dal negozio", detail: "Sensori, porte, allarme, ingressi, orari" },
+      { title: "Store orchestrator", detail: "Correla gli eventi e sceglie gli specialisti" },
+      { title: "Operations, Security, Occupancy, HVAC, Schedule, Policy", detail: "Chi legge l'allarme non può disattivarlo" },
+      { title: "La proposta è corretta?", checks: ["Eventi coerenti tra loro", "Orari e policy del dominio", "Dati sufficienti, sensori affidabili"] },
+      { title: "Si può agire ora?", checks: ["Permessi e autorizzazione", "Integrazione disponibile", "Audit trail", "Azione reversibile"] },
+      { title: "Azione controllata o escalation", detail: "Setpoint, ticket, notifica al manager" },
     ],
-    groups: [
-      {
-        title: "Apertura",
-        rows: [
-          { when: "09:10, allarme inserito, nessun ingresso", then: "Verifica calendario, presenze, policy e autorizzazioni prima di toccare l'allarme. Se non può agire, notifica il manager" },
-          { when: "Un dipendente avvisa che non può aprire", then: "Registra l'evento, cerca un altro responsabile autorizzato, avvisa il manager. Può proporre una procedura alternativa, non cambia la policy" },
-          { when: "Allarme attivo dopo l'orario di apertura", then: "Segnala una possibile mancata apertura ed esegue l'escalation" },
-        ],
-      },
-      {
-        title: "Durante l'apertura",
-        rows: [
-          { when: "Temperatura troppo alta o troppo bassa", then: "Controlla presenze, stato dell'HVAC e soglia. Corregge il setpoint solo se l'azione è autorizzata e reversibile" },
-          { when: "Temperatura anomala, nessuna presenza", then: "Non dà per buono un solo sensore: correla con gli altri dati prima di agire" },
-          { when: "Valori incoerenti da un sensore", then: "Distingue una temperatura davvero anomala da una telemetria non affidabile, e segnala il guasto" },
-          { when: "Consumo energetico anomalo", then: "Lo confronta con temperatura, occupazione, orario e stato dell'HVAC" },
-          { when: "Porta aperta troppo a lungo", then: "Verifica se il negozio è aperto e se c'è qualcuno. Notifica se serve" },
-          { when: "Affluenza oltre la soglia", then: "Informa il manager e propone azioni operative" },
-        ],
-      },
-      {
-        title: "Chiusura",
-        rows: [
-          { when: "20:00, negozio vuoto", then: "Verifica presenze, porte e dispositivi ancora attivi. Avvia le procedure autorizzate: allarme, HVAC secondo policy" },
-          { when: "20:00, presenza rilevata", then: "Non inserisce l'allarme. Escalation al responsabile" },
-          { when: "Allarme non inserito o porte aperte", then: "Notifica il manager e il contatto di sicurezza" },
-        ],
-      },
-    ],
+    trace: { title: "Caso guidato: mancata apertura", label: "Mancata apertura del negozio attraverso il loop", rows: retailTrace },
+    groups: {
+      title: "Altri casi, stesso loop",
+      rows: [
+        {
+          when: "Temperatura fuori target: 27 °C contro 22 °C",
+          then: "Controlla apertura, presenze, policy e range HVAC consentito. Se il gate passa, corregge il setpoint (reversibile, nel log); se no, raccomanda o fa escalation. Qui una risposta diventa un'azione.",
+        },
+        {
+          when: "Mancata chiusura: 20:15, nessuna presenza autorizzata, allarme non inserito",
+          then: "Verifica presenza, orario, accessi e policy. Se tutto è coerente e l'azione è autorizzata, inserisce l'allarme; se manca una condizione, non agisce e dice cosa manca.",
+        },
+        {
+          when: "Consumo energetico anomalo",
+          then: "Lo correla con temperatura, occupazione, orario e HVAC, e distingue un guasto da una telemetria inaffidabile. Propone un'azione o apre un ticket di manutenzione.",
+        },
+      ],
+    },
     note: "Lo stesso modello si potrebbe portare in uno Smart Building: HVAC, occupancy, energia, controllo accessi e manutenzione diventerebbero altri domini specialistici.",
   },
   {
     code: "enterprise",
     name: "Private Agentic AI",
-    kind: "Applicato: conoscenza aziendale",
-    scenario: "Un'azienda vuole usare l'AI internamente senza dare a ogni agente accesso a tutta la conoscenza. HR, Finance, Legal, Operations, Sales, Procurement e IT hanno ciascuno documenti, RAG, agenti, strumenti, policy e permessi propri. Sopra c'è un orchestratore.",
+    kind: "Applicazione possibile · conoscenza aziendale",
+    built: false,
+    scenario: "Un'azienda con più reparti (HR, Finance, Legal, Operations, IT), ciascuno con la propria knowledge base, i propri agenti e i propri permessi, e sopra un orchestratore. Scenario ipotetico.",
     steps: [
-      { title: "Domanda di un dipendente", detail: "\"Qual è la procedura per questo contratto?\"" },
-      { title: "Enterprise orchestrator", detail: "Identifica reparto, identità, ruolo e la fonte di conoscenza corretta" },
-      { title: "Legal RAG e agente legale", detail: "Cerca solo nei documenti Legal a cui l'utente ha accesso" },
-      { title: "Risposta fondata e consentita", checks: ["Fonte autorizzata e aggiornata", "Dati sufficienti", "Accessibile a chi chiede", "Coerente con la policy"] },
-      { title: "Serve un'azione?", checks: ["Chi può approvarla", "Approvazione umana", "Tracciata nel log"] },
-      { title: "Risposta con le fonti", detail: "Con i documenti citati; oppure richiesta di approvazione o escalation" },
+      { title: "Domanda di un dipendente", detail: "Con la sua identità e il suo ruolo" },
+      { title: "Enterprise orchestrator", detail: "Identifica reparto, ruolo e fonte di conoscenza" },
+      { title: "Specialista del reparto e RAG", detail: "Cerca solo nei documenti a cui l'utente ha accesso" },
+      { title: "La risposta è corretta e consentita?", checks: ["Fonte autorizzata e aggiornata", "Dati sufficienti", "Accessibile a chi chiede", "Coerente con la policy"] },
+      { title: "Si può rispondere o agire?", checks: ["Permessi e ruolo", "Audit trail", "Approvazione se serve un'azione"] },
+      { title: "Risposta con le fonti", detail: "Oppure richiesta di accesso, o rifiuto motivato" },
     ],
-    groups: [
-      {
-        title: "Governance",
-        rows: [
-          { when: "Identità e ruoli", then: "Ogni richiesta porta con sé chi la fa: accesso per ruolo e least privilege" },
-          { when: "Confini dei dati", then: "Ogni reparto ha la sua Knowledge Base, con permessi a livello di documento" },
-          { when: "Fonti", then: "Ogni risposta indica i documenti da cui viene" },
-          { when: "Audit e logging", then: "Chi ha chiesto cosa, con quali fonti, con quale esito. Retention definita per policy" },
-          { when: "Model routing", then: "Il modello si sceglie anche in base alla sensibilità dei dati" },
-          { when: "Policy e istruzioni", then: "Prompt e istruzioni versionati e governati come il resto del sistema" },
-          { when: "Evaluation", then: "Eval continue su domande reali, comprese quelle a cui il sistema deve rifiutare di rispondere" },
-          { when: "Approvazione umana", then: "Richiesta quando la risposta diventa un'azione" },
-        ],
-      },
-    ],
-    note: "Il modello non decide da solo cosa può vedere: il RAG non è solo retrieval, è anche controllo dell'accesso alla conoscenza. È un'architettura pensata attorno a privacy, controllo degli accessi, auditabilità e governance, i requisiti che norme come GDPR e AI Act rendono centrali. Non garantisce da sola la conformità: serve a renderla possibile.",
+    trace: { title: "Caso guidato: la fonte che l'utente non può vedere", label: "Una domanda su un documento non accessibile attraverso il loop", rows: enterpriseTrace },
+    note: "Il modello non decide da solo cosa può vedere: il RAG non è solo retrieval, è anche controllo dell'accesso alla conoscenza. In produzione privacy, audit e requisiti come GDPR e AI Act sono vincoli di progetto: il pattern aiuta a rispettarli, non li garantisce.",
   },
 ];
 
-// 06: what the prototype gets away with, and what production needs.
+// 05: what the prototype gets away with, and what a real system needs.
 const gaps = [
   {
     area: "Security",
-    proto: "Un solo utente fidato, in locale, dentro Claude Code. Gli input arrivano da chi ha costruito il sistema.",
-    prod: "Ogni input esterno è non fidato: difese da prompt injection, segreti in un vault, agenti senza credenziali dirette, dati personali minimizzati e mascherati come richiede il GDPR.",
+    proto: "Un solo utente fidato, in locale, dentro Claude Code.",
+    prod: "Ogni input esterno è non fidato: difese da prompt injection, segreti fuori dagli agenti, dati personali minimizzati.",
   },
   {
-    area: "Permissions",
-    proto: "Il perimetro di ogni agente è definito nelle sue istruzioni e nella struttura della Knowledge Base.",
-    prod: "Least privilege applicato dal sistema, non dal prompt: identità di servizio per agente, scope per negozio e per reparto, allowlist degli strumenti, lettura separata dalla scrittura.",
+    area: "Permissions e API",
+    proto: "Autorità per agente nei file di ruolo, con un controllo prima di scrivere. Il raggio d'azione è il repository.",
+    prod: "Least privilege imposto dal sistema, non dal prompt: identità per agente, strumenti in allowlist, solo API tipizzate, mai accesso diretto ad allarme, HVAC o archivi.",
   },
   {
     area: "Observability",
-    proto: "Si osserva l'output finale e, se serve, si rilegge la conversazione.",
-    prod: "Tracing di ogni richiesta attraverso tutti gli stadi e tutti i giri del loop, metriche di latenza, costo e token per agente, eval continue su casi reali, alert quando la qualità deriva.",
+    proto: "Si leggono l'output finale e il log delle modifiche.",
+    prod: "Tracing di ogni richiesta e di ogni giro del loop, costo e latenza per agente, eval su casi reali.",
   },
   {
     area: "Audit",
-    proto: "La storia vive nei file Markdown della Knowledge Base e nel versionamento del repository.",
-    prod: "Log append-only per ogni decisione: input, contesto recuperato, versione di prompt e modello, esito di ogni gate, chi ha approvato. Ogni azione è ricostruibile.",
-  },
-  {
-    area: "Human-in-the-loop",
-    proto: "Il Director approva in batch: contenuti creativi, reversibili, a basso rischio.",
-    prod: "Coinvolgimento deciso per policy in base al rischio: soglie di spesa, azioni irreversibili, casi ambigui. Escalation con il contesto già pronto, interfaccia di revisione per l'operatore.",
-  },
-  {
-    area: "API boundaries",
-    proto: "Gli agenti scrivono file: il raggio d'azione è il repository.",
-    prod: "Nessun accesso diretto ad allarme, HVAC, database o archivi documentali: solo API tipizzate, output validato contro schema, chiavi di idempotenza, rate limit, modalità dry-run.",
+    proto: "Un transaction log di ogni modifica e la storia git.",
+    prod: "Log append-only per decisione: input, fonti, versione di prompt e modello, esito di ogni controllo, chi ha approvato.",
   },
   {
     area: "Failure handling",
-    proto: "Se un passaggio fallisce, lo si rilancia a mano.",
-    prod: "Un gate che non passa è un esito previsto, non un errore. Per i guasti veri: timeout, retry con backoff, circuit breaker, coda dei falliti. Se il modello non risponde, il caso passa a un operatore.",
+    proto: "Lock sui file e modalità DRY-RUN; se un passaggio fallisce, lo si rilancia a mano.",
+    prod: "Un controllo che non passa è un esito previsto. Per i guasti veri: timeout, retry, coda dei falliti; se il modello non risponde, il caso passa a una persona.",
   },
 ];
 
-// 07: the order in which capability to act is earned.
+// 06: the order in which capability to act is earned.
 const rollout = [
-  { name: "Shadow", detail: "Il loop gira su casi reali, nessuno esegue. Si misura quante proposte passano i gate e quanto coincidono con le decisioni umane." },
-  { name: "Assist", detail: "Le proposte validate arrivano all'operatore come bozze da accettare o correggere." },
-  { name: "Act con approvazione", detail: "Le azioni a basso rischio partono dopo un clic, le altre restano umane." },
-  { name: "Autonomia limitata", detail: "Solo le classi di azione con metriche stabili, reversibili e sotto soglia." },
+  { name: "Shadow", detail: "Il loop gira su casi reali e nessuno esegue, come la modalità DRY-RUN dello studio. Si misura quante proposte passano i gate." },
+  { name: "Assist", detail: "Le proposte validate arrivano all'operatore come bozze." },
+  { name: "Act con approvazione", detail: "Le azioni a basso rischio partono dopo un clic." },
+  { name: "Autonomia limitata", detail: "Solo azioni reversibili, sotto soglia, con metriche stabili." },
 ];
 ---
 <section id="architecture" class="arch">
@@ -311,50 +316,30 @@ const rollout = [
     <p class="arch-tag" data-reveal>Oltre il gaming</p>
     <h2 data-reveal>Lo stesso pattern, altri domini.</h2>
     <p class="arch-claim" data-reveal>
-      Agentic Game Studio non è interessante perché ha 53 agenti. È interessante perché nessun
-      output viene considerato concluso finché non supera una sequenza di controlli, e quando un
-      controllo fallisce il sistema torna indietro invece di andare avanti.
+      Ho costruito Agentic Game Studio e ne ho ricavato un pattern che non dipende dal videogame:
+      proposta, verifica, correzione, approvazione. Gli altri due domini sono applicazioni
+      possibili, non sistemi che ho costruito.
     </p>
 
-    <!-- 01: the core idea -->
+    <!-- 01: the pattern -->
     <div class="block">
       <div class="block-head" data-reveal>
         <span class="block-num">01</span>
-        <h3 class="block-title">Proposte, non risposte</h3>
+        <h3 class="block-title">Il pattern: proposte, non risposte</h3>
       </div>
       <p class="block-lede" data-reveal>
-        Gli agenti producono proposte, e ogni proposta passa due controlli distinti: la validation
-        verifica che sia corretta rispetto al problema, il production gate che si possa davvero
-        eseguire. Una proposta può essere corretta e non ancora eseguibile.
-      </p>
-      <ol class="levels">
-        {levels.map((l, i) => (
-          <li class="level" data-reveal>
-            <span class="level-code">{String(i + 1).padStart(2, "0")} · <span lang="en">{l.code}</span></span>
-            <span class="level-question">{l.question}</span>
-            <span class="level-detail">{l.detail}</span>
-          </li>
-        ))}
-      </ol>
-    </div>
-
-    <!-- 02: the validation loop -->
-    <div class="block">
-      <div class="block-head" data-reveal>
-        <span class="block-num">02</span>
-        <h3 class="block-title">Il validation loop</h3>
-      </div>
-      <p class="block-lede" data-reveal>
-        Proposta → verifica → correzione se serve → production gate → output approvato. Quando un
-        controllo fallisce non si procede: si capisce cosa manca o cosa è sbagliato, si riformula o
-        si raccoglie l'informazione mancante, e si verifica di nuovo.
+        Proposta → verifica → correzione se serve → production gate → output approvato. La validation
+        chiede se la proposta è corretta rispetto al problema e alle regole del dominio; il production
+        gate, se siamo tecnicamente, operativamente e legalmente autorizzati a trasformarla in
+        un'azione reale. Quando un controllo fallisce non si procede: si capisce cosa manca, si
+        riformula o si chiede l'informazione, e si verifica di nuovo.
       </p>
 
-      <!-- The loop in general: the main line, and the branch it takes on a failure. -->
+      <!-- The loop: the main line, and the branch it takes on a failure. -->
       <figure class="loop" aria-labelledby="loop-caption" data-reveal>
         <figcaption id="loop-caption" class="sr-only">
-          Proposta, verifica, production gate, approvazione o azione. Se la verifica fallisce si
-          identifica cosa manca, si riformula e si torna alla verifica.
+          Proposta, validation, production gate, approvazione o azione. Se la validation fallisce si
+          identifica cosa manca, si riformula e si torna alla validation.
         </figcaption>
         <div class="loop-node loop-node--p">
           <span class="loop-name">Proposta</span>
@@ -362,13 +347,13 @@ const rollout = [
         </div>
         <span class="loop-link loop-link--1" aria-hidden="true"></span>
         <div class="loop-node loop-node--v">
-          <span class="loop-name">Verifica</span>
-          <span class="loop-sub">gate funzionali, di concetto, di policy</span>
+          <span class="loop-name" lang="en">Validation</span>
+          <span class="loop-sub">è corretta rispetto al dominio?</span>
         </div>
         <span class="loop-link loop-link--2" aria-hidden="true"><span class="loop-link-label">passa</span></span>
         <div class="loop-node loop-node--g">
-          <span class="loop-name">Production gate</span>
-          <span class="loop-sub">si può eseguire davvero?</span>
+          <span class="loop-name" lang="en">Production gate</span>
+          <span class="loop-sub">siamo autorizzati a eseguirla?</span>
         </div>
         <span class="loop-link loop-link--3" aria-hidden="true"></span>
         <div class="loop-node loop-node--a">
@@ -379,52 +364,20 @@ const rollout = [
           <span class="loop-fail-head">✕ Fallisce</span>
           <span class="loop-fail-step">Identifica cosa manca o è sbagliato</span>
           <span class="loop-fail-step">Riformula o chiede l'informazione</span>
-          <span class="loop-fail-head">↺ Torna alla verifica</span>
+          <span class="loop-fail-head">↺ Torna alla validation</span>
         </div>
       </figure>
 
-      <div class="case">
-        <p class="case-lede" data-reveal>
-          Un caso concreto, in un ambiente fisico dove la differenza tra una risposta e un'azione si
-          vede di più: l'apertura di un negozio.
-        </p>
-        <ol class="trace" aria-label="Smart Retail: una mancata apertura attraverso il loop">
-          {trace.map((row) =>
-            row.kind === "phase" ? (
-              <li class="trace-phase" lang="en">{row.label}</li>
-            ) : (
-              <li class={`trace-row trace-row--${row.kind}`} data-trace>
-                <span class="trace-mark" aria-hidden="true">{markers[row.kind]}</span>
-                <span class="trace-body">
-                  <span class="trace-label">
-                    {row.label}
-                    {(row.kind === "pass" || row.kind === "fail") && (
-                      <span class="trace-outcome">{outcomes[row.kind]}</span>
-                    )}
-                  </span>
-                  <span class="trace-title">{row.title}</span>
-                  {row.detail && <span class="trace-detail">{row.detail}</span>}
-                  {row.checks && (
-                    <ul class="trace-checks">
-                      {row.checks.map((c) => <li>{c}</li>)}
-                    </ul>
-                  )}
-                </span>
-              </li>
-            )
-          )}
-        </ol>
-        <p class="case-note" data-reveal>
-          Non avere abbastanza informazioni è un comportamento corretto. Un sistema agentico robusto
-          non inventa una risposta per forza: si ferma, dice cosa gli manca e riparte quando ce l'ha.
-        </p>
-      </div>
+      <p class="note" data-reveal>
+        Una proposta può essere corretta e non ancora eseguibile: il sistema capisce che la
+        temperatura del negozio va abbassata, ma non ha ancora permessi, API o approvazione per farlo.
+      </p>
     </div>
 
-    <!-- 03: what building the studio taught me -->
+    <!-- 02: what I learned building it -->
     <div class="block">
       <div class="block-head" data-reveal>
-        <span class="block-num">03</span>
+        <span class="block-num">02</span>
         <h3 class="block-title">Cosa ho imparato costruendolo</h3>
       </div>
       <ol class="lessons">
@@ -435,36 +388,9 @@ const rollout = [
           </li>
         ))}
       </ol>
-    </div>
-
-    <!-- 04: the principles that survive a change of domain -->
-    <div class="block">
-      <div class="block-head" data-reveal>
-        <span class="block-num">04</span>
-        <h3 class="block-title">I principi, con il loop al centro</h3>
-      </div>
-      <ul class="principles">
-        <li class="principle principle--core" data-reveal>
-          <span class="principle-code">01 · il principio centrale</span>
-          <span class="principle-name">Il validation loop</span>
-          <span class="principle-detail">
-            Nessun output è finale finché non passa i suoi gate. Se un gate fallisce, la proposta
-            torna indietro con quello che manca. Tutti gli altri principi servono a far funzionare questo.
-          </span>
-        </li>
-        {principles.map((p) => (
-          <li class="principle" data-reveal>
-            <span class="principle-code">{p.code}</span>
-            <span class="principle-name">{p.name}</span>
-            <span class="principle-detail">{p.detail}</span>
-          </li>
-        ))}
-      </ul>
 
       <div class="policy" data-reveal>
-        <p class="policy-lede">
-          Il coinvolgimento umano non è necessariamente uno step fisso: dipende dal rischio dell'azione.
-        </p>
+        <p class="panel-group-title">Chi decide, in base al rischio dell'azione</p>
         <ul class="policy-list">
           {humanPolicy.map((p) => (
             <li class="policy-row">
@@ -476,16 +402,34 @@ const rollout = [
       </div>
     </div>
 
-    <!-- 05: one pipeline, three domains -->
+    <!-- 03: why the pattern scales -->
     <div class="block">
       <div class="block-head" data-reveal>
-        <span class="block-num">05</span>
-        <h3 class="block-title">Stesso pattern, tre domini</h3>
+        <span class="block-num">03</span>
+        <h3 class="block-title">Perché il pattern scala</h3>
       </div>
       <p class="block-lede" data-reveal>
-        Non è scalabile perché posso aggiungere altri agenti. È scalabile perché il processo di
-        verifica è indipendente dal dominio: cambiano gli specialisti e i gate, la struttura no.
-        Tre domini lontani tra loro: creazione di contenuti, operazioni fisiche, conoscenza aziendale.
+        Non scala perché si aggiungono agenti: scala perché il processo di verifica si separa dal dominio.
+      </p>
+      <ul class="levels">
+        {scale.map((l) => (
+          <li class="level" data-reveal>
+            <span class="level-code">{l.code}</span>
+            <span class="level-question">{l.question}</span>
+            <span class="level-detail">{l.detail}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+
+    <!-- 04: three domains -->
+    <div class="block">
+      <div class="block-head" data-reveal>
+        <span class="block-num">04</span>
+        <h3 class="block-title">Tre domini: uno costruito, due possibili</h3>
+      </div>
+      <p class="block-lede" data-reveal>
+        Gli stessi sei stadi in tre domini: uno l'ho costruito, due sono applicazioni possibili.
       </p>
 
       <figure class="pattern" data-reveal>
@@ -529,17 +473,54 @@ const rollout = [
                       {d.steps[j].checks!.map((c) => <li>{c}</li>)}
                     </ol>
                   )}
-                  {s.key === "validation" && <span class="stage-return">↺ se fallisce, torna indietro</span>}
-                  {s.key === "gate" && <span class="stage-return">✕ se non è pronta, non si esegue</span>}
+                  {s.key === "validation" && (
+                    <span class="stage-return">{d.built ? "↺ può respingere; il rework non è automatizzato" : "↺ se fallisce, torna indietro"}</span>
+                  )}
+                  {s.key === "gate" && (
+                    <span class="stage-return">{d.built ? "✕ senza approvazione resta in bozza" : "✕ se non è pronta, non si esegue"}</span>
+                  )}
                   {j < stages.length - 1 && <span class="stage-link" aria-hidden="true"><i></i></span>}
                 </li>
               ))}
             </ol>
-            {d.groups?.map((g) => (
+
+            {d.trace && (
               <div class="panel-group">
-                <p class="panel-group-title">{g.title}</p>
+                <p class="panel-group-title">{d.trace.title} · scenario ipotetico</p>
+                <ol class="trace" aria-label={d.trace.label}>
+                  {d.trace.rows.map((row) =>
+                    row.kind === "phase" ? (
+                      <li class="trace-phase" lang="en">{row.label}</li>
+                    ) : (
+                      <li class={`trace-row trace-row--${row.kind}`} data-trace>
+                        <span class="trace-mark" aria-hidden="true">{markers[row.kind]}</span>
+                        <span class="trace-body">
+                          <span class="trace-label">
+                            {row.label}
+                            {(row.kind === "pass" || row.kind === "fail") && (
+                              <span class="trace-outcome">{outcomes[row.kind]}</span>
+                            )}
+                          </span>
+                          <span class="trace-title">{row.title}</span>
+                          {row.detail && <span class="trace-detail">{row.detail}</span>}
+                          {row.checks && (
+                            <ul class="trace-checks">
+                              {row.checks.map((c) => <li>{c}</li>)}
+                            </ul>
+                          )}
+                        </span>
+                      </li>
+                    )
+                  )}
+                </ol>
+              </div>
+            )}
+
+            {d.groups && (
+              <div class="panel-group">
+                <p class="panel-group-title">{d.groups.title}</p>
                 <ul class="policy-list">
-                  {g.rows.map((r) => (
+                  {d.groups.rows.map((r) => (
                     <li class="policy-row">
                       <span class="policy-when">{r.when}</span>
                       <span class="policy-then">{r.then}</span>
@@ -547,32 +528,30 @@ const rollout = [
                   ))}
                 </ul>
               </div>
-            ))}
-            {d.note && <p class="panel-note">{d.note}</p>}
+            )}
+
+            {d.note && <p class="note">{d.note}</p>}
           </div>
         ))}
       </figure>
     </div>
 
-    <!-- 06: prototype versus production -->
+    <!-- 05: prototype versus a real system -->
     <div class="block">
       <div class="block-head" data-reveal>
-        <span class="block-num">06</span>
+        <span class="block-num">05</span>
         <h3 class="block-title">Il loop in un prototipo e in un sistema reale</h3>
       </div>
       <p class="block-lede" data-reveal>
-        Il prototipo dimostra il pattern. Un sistema reale richiede infrastruttura e garanzie che un
-        prototipo personale non deve avere: il loop è riutilizzabile, ma un'implementazione che
-        disattiva un allarme, cambia un setpoint o risponde con documenti riservati ha bisogno di
-        controlli molto più forti.
-        Questa è la distanza, voce per voce.
+        Il prototipo dimostra che il pattern funziona. Un sistema reale deve operare in modo
+        affidabile e controllato, e lì le garanzie cambiano.
       </p>
 
-      <div class="gap-table" role="table" aria-label="Prototipo e produzione a confronto" data-reveal>
+      <div class="gap-table" role="table" aria-label="Prototipo e sistema reale a confronto" data-reveal>
         <div class="gap-row gap-row--head" role="row">
           <span role="columnheader">Area</span>
           <span role="columnheader">Prototipo, Agentic Game Studio</span>
-          <span role="columnheader">Produzione, retail ed enterprise AI</span>
+          <span role="columnheader">Sistema reale</span>
         </div>
         {gaps.map((g) => (
           <div class="gap-row" role="row">
@@ -582,7 +561,7 @@ const rollout = [
               {g.proto}
             </span>
             <span class="gap-cell gap-cell--prod" role="cell">
-              <span class="gap-label" aria-hidden="true">Produzione</span>
+              <span class="gap-label" aria-hidden="true">Sistema reale</span>
               {g.prod}
             </span>
           </div>
@@ -590,15 +569,15 @@ const rollout = [
       </div>
     </div>
 
-    <!-- 07: rollout -->
+    <!-- 06: rollout -->
     <div class="block">
       <div class="block-head" data-reveal>
-        <span class="block-num">07</span>
+        <span class="block-num">06</span>
         <h3 class="block-title">Prima il loop, poi l'autonomia</h3>
       </div>
       <p class="rollout-lede" data-reveal>
-        Non partirei dall'autonomia. Partirei dal loop: prima dimostri che il sistema produce proposte
-        affidabili, poi misuri, poi introduci la capacità di agire, un pezzo alla volta.
+        Non si parte dall'autonomia: si parte dal loop. Prima si dimostra che produce proposte
+        affidabili, poi si osserva, poi si agisce con approvazione, solo infine con autonomia limitata.
       </p>
       <ol class="rollout-steps">
         {rollout.map((r, i) => (
@@ -619,10 +598,7 @@ const rollout = [
         <span>The tools change.</span>
         <span class="thesis-accent">The validation loop stays.</span>
       </p>
-      <p class="thesis-support">
-        È questo che rende il pattern riutilizzabile. Non scala il numero di agenti: scala un processo
-        di proposta, verifica, correzione e approvazione.
-      </p>
+      <p class="thesis-support">È questo che rende il pattern riutilizzabile.</p>
     </div>
   </div>
 </section>
@@ -700,7 +676,7 @@ const rollout = [
     text-wrap: pretty;
   }
 
-  /* ---------- 01 Two levels ---------- */
+  /* ---------- 03 What changes / what stays (two-card list) ---------- */
 
   .levels {
     list-style: none;
@@ -745,7 +721,7 @@ const rollout = [
     line-height: 1.55;
   }
 
-  /* ---------- 02 The loop ---------- */
+  /* ---------- 01 The loop ---------- */
 
   /* Narrow: one column, the failure branch indented under "Verifica".
      Wide: the main line runs left to right, the branch hangs under "Verifica". */
@@ -907,19 +883,6 @@ const rollout = [
     background: var(--accent);
   }
 
-  /* The worked case */
-
-  .case {
-    margin-top: 4.5rem;
-  }
-
-  .case-lede {
-    font-size: clamp(1.05rem, 1.6vw, 1.2rem);
-    max-width: 58ch;
-    margin-bottom: 2rem;
-    text-wrap: pretty;
-  }
-
   .trace {
     list-style: none;
     max-width: 46rem;
@@ -1063,8 +1026,7 @@ const rollout = [
     background: var(--bg-elevated);
   }
 
-  .case-note,
-  .panel-note {
+  .note {
     margin-top: 2.5rem;
     padding-left: 0.9rem;
     border-left: 2px solid var(--accent);
@@ -1072,7 +1034,7 @@ const rollout = [
     text-wrap: pretty;
   }
 
-  /* ---------- 03 Lessons ---------- */
+  /* ---------- 02 Lessons ---------- */
 
   .lessons {
     list-style: none;
@@ -1109,81 +1071,8 @@ const rollout = [
     text-wrap: pretty;
   }
 
-  /* ---------- 04 Principles ---------- */
-
-  .principles {
-    list-style: none;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 1px;
-    background: var(--border);
-    border: 1px solid var(--border);
-  }
-  @media (min-width: 640px) {
-    .principles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  }
-  @media (min-width: 980px) {
-    .principles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  }
-
-  .principle {
-    background: var(--bg);
-    padding: 1.6rem 1.4rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-    border-top: 2px solid transparent;
-    transition: border-color 0.25s, background 0.25s;
-  }
-  .principle:hover {
-    background: var(--bg-elevated);
-    border-top-color: var(--accent);
-  }
-
-  /* The loop spans the full row: the others hang off it. */
-  .principle--core {
-    grid-column: 1 / -1;
-    padding: 2rem 1.5rem;
-    border-top-color: var(--accent);
-    background: var(--bg-elevated);
-  }
-  .principle--core .principle-name {
-    font-size: clamp(1.4rem, 3vw, 2rem);
-  }
-  .principle--core .principle-detail {
-    color: var(--fg);
-    font-size: 1rem;
-    max-width: 62ch;
-  }
-
-  .principle-code {
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    color: var(--accent);
-  }
-
-  .principle-name {
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: 1.1rem;
-    line-height: 1.25;
-  }
-
-  .principle-detail {
-    color: var(--muted);
-    font-size: 0.95rem;
-    line-height: 1.55;
-  }
-
   .policy {
     margin-top: 3rem;
-  }
-
-  .policy-lede {
-    font-size: clamp(1.05rem, 1.6vw, 1.2rem);
-    max-width: 58ch;
-    margin-bottom: 1.5rem;
-    text-wrap: pretty;
   }
 
   .policy-list {
@@ -1224,7 +1113,7 @@ const rollout = [
     font-family: var(--font-mono);
   }
 
-  /* ---------- 05 Pattern ---------- */
+  /* ---------- 04 Three domains ---------- */
 
   .pattern {
     margin: 0;
@@ -1452,7 +1341,7 @@ const rollout = [
     }
   }
 
-  /* ---------- 06 Prototype vs production ---------- */
+  /* ---------- 05 Prototype vs real system ---------- */
 
   .gap-table {
     border: 1px solid var(--border);
@@ -1530,7 +1419,7 @@ const rollout = [
     .gap-label { display: none; }
   }
 
-  /* ---------- 07 Rollout ---------- */
+  /* ---------- 06 Rollout ---------- */
 
   .rollout-lede {
     font-size: clamp(1.05rem, 1.6vw, 1.2rem);
@@ -1614,7 +1503,6 @@ const rollout = [
 
   @media (prefers-reduced-motion: reduce) {
     .tab,
-    .principle,
     .trace-mark { transition: none; }
   }
 </style>
@@ -1626,52 +1514,30 @@ const rollout = [
   gsap.registerPlugin(ScrollTrigger);
 
   const pattern = document.querySelector<HTMLElement>(".pattern");
-  const trace = document.querySelector<HTMLElement>(".trace");
   const tabs = gsap.utils.toArray<HTMLButtonElement>(".pattern [role='tab']");
   const panels = gsap.utils.toArray<HTMLElement>(".pattern [role='tabpanel']");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const wide = window.matchMedia("(min-width: 1240px)");
+  let running: gsap.core.Timeline | null = null;
 
-  /* ---- The worked case: the scroll walks the anomaly through the gates ----
-     Scrubbed like the studio diagram. Every row is readable without it; what
-     moves is how far the case has got, including the step back on the failure. */
-  if (trace) {
-    const rows = gsap.utils.toArray<HTMLElement>("[data-trace]", trace);
-
-    if (reduceMotion) {
-      rows.forEach((r) => r.classList.add("is-lit"));
-    } else {
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: trace,
-          start: "top 75%",
-          end: "bottom 60%",
-          scrub: 0.5,
-        },
-      });
-      rows.forEach((row, i) => {
-        tl.to(row, {
-          duration: 0.1,
-          onStart: () => row.classList.add("is-lit"),
-          onReverseComplete: () => row.classList.remove("is-lit"),
-        }, i * 0.5);
-      });
-    }
-  }
-
-  /* ---- The signal runs through the six stages of the visible panel ---- */
+  /* ---- The signal runs through the six stages of the visible panel, then
+     down the worked case under it, row by row. Everything is readable without
+     it: what moves is how far the case has got. ---- */
   function run(panel: HTMLElement) {
     const stages = gsap.utils.toArray<HTMLElement>("[data-stage]", panel);
     const links = gsap.utils.toArray<HTMLElement>(".stage-link i", panel);
+    const rows = gsap.utils.toArray<HTMLElement>("[data-trace]", panel);
+    const lit = [...stages, ...rows];
     const axis = wide.matches ? "scaleX" : "scaleY";
 
+    running?.kill();
     gsap.killTweensOf(links);
-    stages.forEach((s) => s.classList.remove("is-lit"));
+    lit.forEach((e) => e.classList.remove("is-lit"));
     gsap.set(links, { scaleX: wide.matches ? 0 : 1, scaleY: wide.matches ? 1 : 0 });
 
     if (reduceMotion) {
       gsap.set(links, { scaleX: 1, scaleY: 1 });
-      stages.forEach((s) => s.classList.add("is-lit"));
+      lit.forEach((e) => e.classList.add("is-lit"));
       return;
     }
 
@@ -1681,6 +1547,9 @@ const rollout = [
       tl.call(() => stage.classList.add("is-lit"), [], at);
       if (links[i]) tl.to(links[i], { [axis]: 1, duration: 0.24 }, at + 0.04);
     });
+    const start = stages.length * 0.3 + 0.2;
+    rows.forEach((row, i) => tl.call(() => row.classList.add("is-lit"), [], start + i * 0.14));
+    running = tl;
   }
 
   function select(code: string, focus = false) {
@@ -1707,6 +1576,9 @@ const rollout = [
       select(next.dataset.domain ?? "", true);
     });
   });
+
+  // Reduced motion: no sequence, so every panel starts in its finished state.
+  if (reduceMotion) panels.forEach(run);
 
   if (pattern) {
     // First pass when the diagram scrolls into view, then on every tab switch.
