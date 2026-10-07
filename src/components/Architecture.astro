@@ -158,8 +158,8 @@ const enterpriseTrace: TraceRow[] = [
   {
     kind: "step",
     label: "Orchestration → Specialists",
-    title: "L'orchestratore identifica reparto, identità e autorizzazioni",
-    detail: "Passa la richiesta all'agente del reparto, che cerca solo nella knowledge del reparto. Proposta: la procedura trovata nei documenti.",
+    title: "L'orchestratore verifica l'identità e individua il reparto responsabile",
+    detail: "L'agente del reparto interroga solo la knowledge autorizzata del reparto. Proposta: la procedura trovata nei documenti.",
   },
   { kind: "phase", label: "Validation loop" },
   {
@@ -171,13 +171,13 @@ const enterpriseTrace: TraceRow[] = [
     kind: "fail",
     label: "Validation · 02",
     title: "Il documento necessario è accessibile a questo utente?",
-    detail: "No: è fuori dal suo perimetro autorizzato. Né l'agente né l'orchestratore possono aggirare il confine.",
+    detail: "No: è fuori dal perimetro autorizzato. Né l'agente né l'orchestratore possono aggirare il confine.",
   },
   {
     kind: "response",
     label: "Risposta del sistema",
     title: "Non inventa una risposta. Dice cosa manca.",
-    detail: "Può chiedere l'autorizzazione, usare una fonte alternativa autorizzata, inoltrare la richiesta o dichiarare che non può rispondere.",
+    detail: "Può chiedere l'autorizzazione o altre informazioni, usare una fonte alternativa autorizzata, o inoltrare la richiesta.",
   },
   {
     kind: "rerun",
@@ -194,13 +194,13 @@ const enterpriseTrace: TraceRow[] = [
     kind: "pass",
     label: "Production gate",
     title: "Si può rispondere ed eventualmente agire?",
-    checks: ["Fonti citate", "Richiesta nel log", "Approvazione se serve un'azione"],
+    checks: ["Fonti citate", "Audit trail attivo", "Approvazione se serve un'azione"],
   },
   { kind: "phase", label: "Action" },
   {
     kind: "action",
     label: "Output finale",
-    title: "Risposta con le fonti citate.",
+    title: "Risposta con le fonti, registrata nell'audit trail.",
   },
 ];
 
@@ -258,14 +258,14 @@ const domains: Domain[] = [
   },
   {
     code: "enterprise",
-    name: "Private Agentic AI",
-    kind: "Applicazione possibile · conoscenza aziendale",
+    name: "Private Enterprise AI",
+    kind: "Applicazione possibile · ambiente AI aziendale",
     built: false,
-    scenario: "Non un chatbot sopra tutti i documenti, ma un ambiente agentico privato che rispecchia la struttura dell'azienda: le responsabilità di ogni reparto diventano agenti con confini precisi, e conoscenza, accessi, strumenti e azioni sono controllati. Il modello sotto può essere qualunque. Scenario ipotetico.",
+    scenario: "Un ambiente AI dedicato all'azienda, dove modello, livello agentico, knowledge e permessi possono restare dentro un perimetro controllato. La struttura dell'azienda diventa un sistema di agenti; il RAG ne è una componente, non il sistema. Scenario ipotetico.",
     steps: [
       { title: "Richiesta di un dipendente", detail: "Con la sua identità e il suo ruolo" },
-      { title: "AI orchestrator", detail: "Identifica reparto, ruolo e fonte di conoscenza" },
-      { title: "Un agente per reparto", detail: "HR, Finance, Legal, Operations, Sales, IT: strumenti e permessi propri" },
+      { title: "AI orchestrator", detail: "Identifica reparto, ruolo e fonte, dentro il perimetro" },
+      { title: "Un agente per reparto", detail: "HR, Finance, Legal, Operations: knowledge, strumenti e permessi propri" },
       { title: "La risposta è corretta e consentita?", checks: ["Fonte autorizzata e aggiornata", "Dati sufficienti", "Accessibile a chi chiede", "Coerente con la policy"] },
       { title: "Si può rispondere o agire?", checks: ["Permessi e ruolo", "Audit trail", "Approvazione se serve un'azione"] },
       { title: "Risposta con le fonti", detail: "Oppure richiesta di accesso, o rifiuto motivato" },
@@ -273,13 +273,13 @@ const domains: Domain[] = [
     bridge: {
       title: "Dallo studio all'azienda",
       rows: [
-        { when: "53 ruoli in roles.json, agenti generati da un template", then: "I reparti, la knowledge, i permessi e gli strumenti di un'azienda come configurazione, non come codice" },
+        { when: "53 ruoli in roles.json, agenti generati da un template", then: "Nel progetto ruoli e agenti sono già separati. Lo stesso principio può estendersi a un'azienda: architettura fissa, organizzazione configurabile" },
         { when: "Game Director e orchestratori di reparto", then: "AI orchestrator: smista ai reparti e non ne aggira i confini" },
         { when: "Knowledge Base letta per reparto", then: "Knowledge di reparto: l'agente HR non legge quella di Finance, e viceversa" },
       ],
     },
     trace: { title: "Caso guidato: la fonte che l'utente non può vedere", label: "Una domanda su un documento non accessibile attraverso il loop", rows: enterpriseTrace },
-    note: "L'architettura è fissa, la conoscenza dell'organizzazione è configurabile: reparti, documenti, policy, permessi, strumenti ed escalation cambiano per ogni azienda, il sistema no. Privacy, audit e requisiti come GDPR e AI Act sono vincoli di progetto: il pattern aiuta a rispettarli, non li garantisce.",
+    note: "In un sistema reale l'ambiente potrebbe usare un modello self-hosted o open-weight, infrastruttura isolata, rete privata e storage controllato: scelte di implementazione, non parti del prototipo, che usa modelli esistenti e non ne addestra. Privacy e audit sono vincoli di progetto, GDPR e AI Act inclusi: il pattern aiuta a rispettarli, non li garantisce.",
   },
 ];
 
@@ -670,9 +670,13 @@ const rollout = [
     margin-top: 6rem;
   }
 
+  /* Chapter heading: number + title centred, like the section heading above;
+     the hairline stays full width as a divider. Body content keeps its own alignment. */
   .block-head {
     display: flex;
     align-items: baseline;
+    justify-content: center;
+    text-align: center;
     gap: 1rem;
     padding-bottom: 1.25rem;
     border-bottom: 1px solid var(--border-strong);
@@ -695,7 +699,9 @@ const rollout = [
   .block-lede {
     color: var(--muted);
     max-width: 62ch;
+    margin-inline: auto;
     margin-bottom: 2.5rem;
+    text-align: center;
     text-wrap: pretty;
   }
 
@@ -1447,7 +1453,9 @@ const rollout = [
   .rollout-lede {
     font-size: clamp(1.05rem, 1.6vw, 1.2rem);
     max-width: 58ch;
+    margin-inline: auto;
     margin-bottom: 2rem;
+    text-align: center;
     text-wrap: pretty;
   }
 
@@ -1496,10 +1504,12 @@ const rollout = [
 
   /* ---------- Closing thesis ---------- */
 
+  /* The closing thesis is the section's final heading: centred. */
   .thesis {
     margin-top: 7rem;
     padding-top: 3rem;
     border-top: 1px solid var(--border-strong);
+    text-align: center;
   }
 
   .thesis-lines {
@@ -1519,6 +1529,7 @@ const rollout = [
 
   .thesis-support {
     margin-top: 1.75rem;
+    margin-inline: auto;
     font-size: clamp(1.05rem, 1.8vw, 1.3rem);
     max-width: 58ch;
     text-wrap: pretty;
