@@ -22,6 +22,7 @@ type Domain = {
   built: boolean;
   scenario: string;
   steps: Step[];
+  bridge?: { title: string; rows: Row[] };
   trace?: { title: string; label: string; rows: TraceRow[] };
   groups?: { title: string; rows: Row[] };
   note?: string;
@@ -152,13 +153,13 @@ const enterpriseTrace: TraceRow[] = [
   {
     kind: "step",
     label: "Input",
-    title: "Un dipendente chiede: «Qual è la procedura per questo tipo di richiesta?»",
+    title: "Un dipendente chiede: «Qual è la procedura per questa richiesta?»",
   },
   {
     kind: "step",
     label: "Orchestration → Specialists",
-    title: "L'orchestratore identifica reparto, identità e ruolo",
-    detail: "Passa la richiesta allo specialista del reparto, che cerca solo nella knowledge base del reparto. Proposta: la procedura trovata nei documenti.",
+    title: "L'orchestratore identifica reparto, identità e autorizzazioni",
+    detail: "Passa la richiesta all'agente del reparto, che cerca solo nella knowledge del reparto. Proposta: la procedura trovata nei documenti.",
   },
   { kind: "phase", label: "Validation loop" },
   {
@@ -170,18 +171,18 @@ const enterpriseTrace: TraceRow[] = [
     kind: "fail",
     label: "Validation · 02",
     title: "Il documento necessario è accessibile a questo utente?",
-    detail: "No: la fonte richiesta è fuori dal suo ambito di autorizzazione.",
+    detail: "No: è fuori dal suo perimetro autorizzato. Né l'agente né l'orchestratore possono aggirare il confine.",
   },
   {
     kind: "response",
     label: "Risposta del sistema",
     title: "Non inventa una risposta. Dice cosa manca.",
-    detail: "Può chiedere l'autorizzazione, inoltrare la richiesta, usare una fonte alternativa autorizzata, o dichiarare che non può rispondere.",
+    detail: "Può chiedere l'autorizzazione, usare una fonte alternativa autorizzata, inoltrare la richiesta o dichiarare che non può rispondere.",
   },
   {
     kind: "rerun",
     label: "Re-run",
-    title: "L'utente ottiene l'accesso o indica una fonte autorizzata: i controlli ripartono.",
+    title: "Arriva l'autorizzazione o una fonte alternativa: i controlli ripartono.",
   },
   {
     kind: "pass",
@@ -193,7 +194,7 @@ const enterpriseTrace: TraceRow[] = [
     kind: "pass",
     label: "Production gate",
     title: "Si può rispondere ed eventualmente agire?",
-    checks: ["Fonti citate", "Richiesta registrata nel log", "Approvazione se serve un'azione"],
+    checks: ["Fonti citate", "Richiesta nel log", "Approvazione se serve un'azione"],
   },
   { kind: "phase", label: "Action" },
   {
@@ -260,17 +261,24 @@ const domains: Domain[] = [
     name: "Private Agentic AI",
     kind: "Applicazione possibile · conoscenza aziendale",
     built: false,
-    scenario: "Un'azienda con più reparti (HR, Finance, Legal, Operations, IT), ciascuno con la propria knowledge base, i propri agenti e i propri permessi, e sopra un orchestratore. Scenario ipotetico.",
+    scenario: "Non un chatbot sopra tutti i documenti, ma un ambiente agentico privato che rispecchia la struttura dell'azienda: le responsabilità di ogni reparto diventano agenti con confini precisi, e conoscenza, accessi, strumenti e azioni sono controllati. Il modello sotto può essere qualunque. Scenario ipotetico.",
     steps: [
-      { title: "Domanda di un dipendente", detail: "Con la sua identità e il suo ruolo" },
-      { title: "Enterprise orchestrator", detail: "Identifica reparto, ruolo e fonte di conoscenza" },
-      { title: "Specialista del reparto e RAG", detail: "Cerca solo nei documenti a cui l'utente ha accesso" },
+      { title: "Richiesta di un dipendente", detail: "Con la sua identità e il suo ruolo" },
+      { title: "AI orchestrator", detail: "Identifica reparto, ruolo e fonte di conoscenza" },
+      { title: "Un agente per reparto", detail: "HR, Finance, Legal, Operations, Sales, IT: strumenti e permessi propri" },
       { title: "La risposta è corretta e consentita?", checks: ["Fonte autorizzata e aggiornata", "Dati sufficienti", "Accessibile a chi chiede", "Coerente con la policy"] },
       { title: "Si può rispondere o agire?", checks: ["Permessi e ruolo", "Audit trail", "Approvazione se serve un'azione"] },
       { title: "Risposta con le fonti", detail: "Oppure richiesta di accesso, o rifiuto motivato" },
     ],
+    bridge: {
+      title: "Dallo studio all'azienda",
+      rows: [
+        { when: "Game Director e orchestratori di reparto", then: "AI orchestrator: smista ai reparti e non ne aggira i confini" },
+        { when: "Knowledge Base letta per reparto", then: "Knowledge di reparto: l'agente HR non legge quella di Finance, e viceversa" },
+      ],
+    },
     trace: { title: "Caso guidato: la fonte che l'utente non può vedere", label: "Una domanda su un documento non accessibile attraverso il loop", rows: enterpriseTrace },
-    note: "Il modello non decide da solo cosa può vedere: il RAG non è solo retrieval, è anche controllo dell'accesso alla conoscenza. In produzione privacy, audit e requisiti come GDPR e AI Act sono vincoli di progetto: il pattern aiuta a rispettarli, non li garantisce.",
+    note: "L'architettura è fissa, la conoscenza dell'organizzazione è configurabile: reparti, documenti, policy, permessi, strumenti ed escalation cambiano per ogni azienda, il sistema no. Privacy, audit e requisiti come GDPR e AI Act sono vincoli di progetto: il pattern aiuta a rispettarli, non li garantisce.",
   },
 ];
 
@@ -483,6 +491,20 @@ const rollout = [
                 </li>
               ))}
             </ol>
+
+            {d.bridge && (
+              <div class="panel-group">
+                <p class="panel-group-title">{d.bridge.title}</p>
+                <ul class="policy-list">
+                  {d.bridge.rows.map((r) => (
+                    <li class="policy-row">
+                      <span class="policy-when">{r.when}</span>
+                      <span class="policy-then">{r.then}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {d.trace && (
               <div class="panel-group">
